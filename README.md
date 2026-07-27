@@ -126,6 +126,29 @@ renumeradas em sequência.
 > depreciação do período não constam do balanço** e saem zeradas, para o contador preencher
 > no passo de revisão.
 
+> **Nota 18 (Natureza das Despesas e Custos):** a DRE do Domínio informa apenas o total das
+> despesas operacionais, sem abrir serviços de terceiros e depreciações. O passo de revisão
+> traz os quatro campos da matriz (`custo do serviço · serviços de terceiros · depreciações ·
+> outros`) editáveis por exercício; o valor inicial põe o que a DRE fornece e joga o restante
+> em "Outros Custos e Despesas".
+
+### Papel timbrado
+
+As imagens PNG do cabeçalho e do rodapé são posicionadas como imagens flutuantes ancoradas à
+página (`behindDocument`, sem quebra de texto), de modo a se repetirem em todas as páginas. A
+geometria reproduz o arquivo de referência:
+
+| | Largura | Altura | Posição |
+|---|---|---|---|
+| Página | 11910 twips | 16840 twips | — |
+| Cabeçalho | 11397 twips | proporcional à imagem (~2145) | topo, centralizado |
+| Rodapé | 11477 twips | proporcional à imagem (~1436) | pé da página, centralizado |
+
+A altura vem da proporção da imagem enviada, então as artes precisam ter o mesmo formato das
+originais (cabeçalho ~2371×447 px, rodapé ~2391×299 px). As margens de texto
+(2750 no topo, 1700 no pé) mantêm o corpo fora da arte — há testes que garantem que não há
+colisão.
+
 ### Textos das notas
 
 Os textos descritivos ficam em [`backend/app/templates/notas/`](backend/app/templates/notas/),

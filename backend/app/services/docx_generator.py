@@ -20,14 +20,26 @@ from app.services.notas_builder import Nota, Paragrafo, Tabela
 
 logger = logging.getLogger(__name__)
 
+# Geometria conferida contra o arquivo de papel timbrado de referência
+# (Papel timbrado.docx): página 11910 x 16840 twips, arte do cabeçalho com
+# 2145 twips de altura e a do rodapé com 1436, ambas sangrando até perto da
+# borda. As margens de texto abaixo mantêm o corpo fora da arte:
+#   topo   2750 > 2145 (folga de ~605 twips)
+#   rodapé 16840 - 1700 = 15140 < 15404, onde a arte do rodapé começa
 PAGE_SETUP = {
-    "width_twips": 11906,  # A4
-    "height_twips": 16838,
+    "width_twips": 11910,  # A4 do papel timbrado de referência
+    "height_twips": 16840,
     "margin_top": 2750,  # espaço para o header timbrado
     "margin_bottom": 1700,
     "margin_left": 1134,
     "margin_right": 1134,
 }
+
+# Largura de cada arte do timbrado, conforme o documento de referência. Menor
+# que a página: a arte é centralizada, deixando uma pequena sangria lateral.
+# A altura é derivada da proporção da imagem enviada — com as artes de
+# referência isso reproduz 2145 twips no cabeçalho e 1436 no rodapé.
+TIMBRADO_LARGURA_TWIPS = {"header": 11397, "footer": 11477}
 
 TABLE_STYLE = {
     "header_fill": "A6A6A6",
@@ -101,11 +113,12 @@ class DocxGeneratorService:
         secao = doc.sections[0]
         paragrafo = secao.header.paragraphs[0]
         paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        largura = TIMBRADO_LARGURA_TWIPS["header"]
         self._add_floating_image(
             paragrafo,
             Path(caminho),
-            largura_twips=PAGE_SETUP["width_twips"],
-            offset_x_twips=0,
+            largura_twips=largura,
+            offset_x_twips=self._inset_horizontal(largura),
             offset_y_twips=0,
         )
 
@@ -119,16 +132,20 @@ class DocxGeneratorService:
         paragrafo = secao.footer.paragraphs[0]
         paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-        altura_twips = self._altura_proporcional(
-            Path(caminho), PAGE_SETUP["width_twips"]
-        )
+        largura = TIMBRADO_LARGURA_TWIPS["footer"]
+        altura_twips = self._altura_proporcional(Path(caminho), largura)
         self._add_floating_image(
             paragrafo,
             Path(caminho),
-            largura_twips=PAGE_SETUP["width_twips"],
-            offset_x_twips=0,
+            largura_twips=largura,
+            offset_x_twips=self._inset_horizontal(largura),
             offset_y_twips=PAGE_SETUP["height_twips"] - altura_twips,
         )
+
+    @staticmethod
+    def _inset_horizontal(largura_twips: int) -> int:
+        """Centraliza a arte do timbrado na página."""
+        return (PAGE_SETUP["width_twips"] - largura_twips) // 2
 
     @staticmethod
     def _altura_proporcional(imagem: Path, largura_twips: int) -> int:

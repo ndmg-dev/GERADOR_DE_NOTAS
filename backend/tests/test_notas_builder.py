@@ -193,6 +193,41 @@ def test_nota_natureza_despesas_e_matriz(notas) -> None:
     ]
 
 
+def test_nota_natureza_despesas_aceita_valores_revisados() -> None:
+    """A abertura por natureza digitada na revisão substitui o padrão."""
+    exercicio = _exercicio(2025, BALANCO_TEXTO, DRE_TEXTO)
+    exercicio["natureza_despesas"] = {
+        "custo_servico": 1_000.00,
+        "servicos_terceiros": 200.00,
+        "depreciacoes": 300.00,
+        "outros": 500.00,
+    }
+
+    notas = NotasBuilderService().build_all([exercicio], EMPRESA, CONFIG)
+    tabela = _tabela(
+        _por_titulo(notas, "Informações sobre a Natureza das Despesas e Custos")
+    )
+
+    assert tabela.linhas[0] == ["Custo do Serviço Prestado", "1.000,00", "0,00", "1.000,00"]
+    assert tabela.linhas[1] == ["Serviços de Terceiros", "0,00", "200,00", "200,00"]
+    assert tabela.total == ["Total", "1.000,00", "1.000,00", "2.000,00"]
+
+
+def test_natureza_despesas_padrao_usa_a_dre() -> None:
+    from app.services.notas_builder import natureza_despesas_padrao
+
+    dre = PdfParserService().parse_dre_text(DRE_TEXTO)
+    padrao = natureza_despesas_padrao(dre)
+
+    # custos aplicados (900.000) + mão de obra direta (400.000)
+    assert padrao["custo_servico"] == pytest.approx(1_300_000.00)
+    # o Domínio não abre estes na DRE
+    assert padrao["servicos_terceiros"] == 0.0
+    assert padrao["depreciacoes"] == 0.0
+    # o restante das despesas operacionais
+    assert padrao["outros"] == pytest.approx(500_000.00)
+
+
 def test_nota_resultado_financeiro(notas) -> None:
     tabela = _tabela(_por_titulo(notas, "Resultado Financeiro"))
     assert [l[0] for l in tabela.linhas] == [

@@ -143,6 +143,10 @@ class Exercicio:
     ano: int
     balanco: dict[str, Any] = field(default_factory=dict)
     dre: dict[str, Any] = field(default_factory=dict)
+    # Abertura da Nota 18 por natureza. A DRE do Domínio traz apenas o total
+    # das despesas operacionais, então esta composição é preenchida pelo
+    # contador no passo de revisão.
+    natureza_despesas: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, dados: dict[str, Any]) -> Exercicio:
@@ -150,7 +154,42 @@ class Exercicio:
             ano=int(dados.get("ano") or 0),
             balanco=dados.get("balanco") or {},
             dre=dados.get("dre") or {},
+            natureza_despesas=dados.get("natureza_despesas") or {},
         )
+
+
+# Linhas da Nota 18, na ordem do modelo de referência.
+NATUREZA_LINHAS = (
+    ("custo_servico", "Custo do Serviço Prestado", "custos"),
+    ("servicos_terceiros", "Serviços de Terceiros", "despesas"),
+    ("depreciacoes", "Depreciações", "despesas"),
+    ("outros", "Outros Custos e Despesas", "despesas"),
+)
+
+
+def natureza_despesas_padrao(dre: dict[str, Any]) -> dict[str, float]:
+    """Composição inicial da Nota 18 a partir do que a DRE fornece.
+
+    O Domínio não abre serviços de terceiros nem depreciações na DRE, então
+    esses campos partem de zero e o restante das despesas operacionais cai em
+    "Outros Custos e Despesas". O contador ajusta na revisão.
+    """
+    custos = dre.get("custos") or {}
+    despesas = dre.get("despesas_operacionais") or {}
+
+    custo_servico = abs(custos.get("custos_aplicados") or 0.0) + abs(
+        custos.get("mao_obra_direta") or 0.0
+    )
+    servicos = abs(despesas.get("servicos_terceiros") or 0.0)
+    depreciacoes = abs(despesas.get("depreciacoes") or 0.0)
+    outros = max(abs(despesas.get("total") or 0.0) - servicos - depreciacoes, 0.0)
+
+    return {
+        "custo_servico": round(custo_servico, 2),
+        "servicos_terceiros": round(servicos, 2),
+        "depreciacoes": round(depreciacoes, 2),
+        "outros": round(outros, 2),
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -734,27 +773,38 @@ class NotasBuilderService:
         gerou = False
 
         for exercicio in self._exercicios:
-            dre = exercicio.dre
-            if not dre:
+            if not exercicio.dre:
                 continue
 
-            custos = dre.get("custos") or {}
-            despesas = dre.get("despesas_operacionais") or {}
+            # Valores revisados pelo contador têm precedência sobre o padrão.
+            composicao = {
+                **natureza_despesas_padrao(exercicio.dre),
+                **{
+                    chave: valor
+                    for chave, valor in exercicio.natureza_despesas.items()
+                    if isinstance(valor, (int, float))
+                },
+            }
 
-            custo_servico = abs(custos.get("custos_aplicados") or 0.0) + abs(
-                custos.get("mao_obra_direta") or 0.0
-            )
-            servicos = abs(despesas.get("servicos_terceiros") or 0.0)
-            depreciacoes = abs(despesas.get("depreciacoes") or 0.0)
-            total_despesas = abs(despesas.get("total") or 0.0)
-            outros = max(total_despesas - servicos - depreciacoes, 0.0)
+            linhas: list[list[str]] = []
+            total_custos = 0.0
+            total_despesas = 0.0
 
-            linhas = [
-                ["Custo do Serviço Prestado", formatar_brl(custo_servico), formatar_brl(0.0), formatar_brl(custo_servico)],
-                ["Serviços de Terceiros", formatar_brl(0.0), formatar_brl(servicos), formatar_brl(servicos)],
-                ["Depreciações", formatar_brl(0.0), formatar_brl(depreciacoes), formatar_brl(depreciacoes)],
-                ["Outros Custos e Despesas", formatar_brl(0.0), formatar_brl(outros), formatar_brl(outros)],
-            ]
+            for chave, rotulo, coluna in NATUREZA_LINHAS:
+                valor = float(composicao.get(chave) or 0.0)
+                em_custos = coluna == "custos"
+                if em_custos:
+                    total_custos += valor
+                else:
+                    total_despesas += valor
+                linhas.append(
+                    [
+                        rotulo,
+                        formatar_brl(valor if em_custos else 0.0),
+                        formatar_brl(0.0 if em_custos else valor),
+                        formatar_brl(valor),
+                    ]
+                )
 
             conteudo.append(
                 Tabela(
@@ -768,9 +818,9 @@ class NotasBuilderService:
                     linhas=linhas,
                     total=[
                         "Total",
-                        formatar_brl(custo_servico),
-                        formatar_brl(servicos + depreciacoes + outros),
-                        formatar_brl(custo_servico + servicos + depreciacoes + outros),
+                        formatar_brl(total_custos),
+                        formatar_brl(total_despesas),
+                        formatar_brl(total_custos + total_despesas),
                     ],
                 )
             )

@@ -34,7 +34,7 @@ from app.schemas import (
     StatusResponse,
 )
 from app.services.docx_generator import DocxGeneratorService
-from app.services.notas_builder import NotasBuilderService
+from app.services.notas_builder import NotasBuilderService, natureza_despesas_padrao
 from app.services.pdf_parser import PdfParserService
 from app.services.storage import StorageService
 
@@ -167,11 +167,15 @@ async def processar_job(job_id: uuid.UUID) -> None:
                 job.progresso = 10 + int(70 * indice / max(len(entradas), 1))
                 await db.commit()
 
+                dre = parser.parse_dre(entrada["dre_path"])
                 exercicios.append(
                     {
                         "ano": ano,
                         "balanco": parser.parse_balanco(entrada["balanco_path"]),
-                        "dre": parser.parse_dre(entrada["dre_path"]),
+                        "dre": dre,
+                        # Abertura da Nota 18 — a DRE só traz o total, então
+                        # o contador ajusta esses valores na revisão.
+                        "natureza_despesas": natureza_despesas_padrao(dre),
                     }
                 )
 

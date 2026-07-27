@@ -138,11 +138,24 @@ export interface ConfigNotas {
   data_aprovacao: string | null
 }
 
+/**
+ * Abertura da Nota 18 por natureza. A DRE do Domínio traz apenas o total das
+ * despesas operacionais, então esta composição é ajustada pelo contador na
+ * revisão.
+ */
+export interface NaturezaDespesas {
+  custo_servico: number | null
+  servicos_terceiros: number | null
+  depreciacoes: number | null
+  outros: number | null
+}
+
 /** Um exercício social com seus demonstrativos já extraídos. */
 export interface Exercicio {
   ano: number
   balanco: Balanco
   dre: Dre
+  natureza_despesas: NaturezaDespesas
 }
 
 export interface DadosExtraidos {

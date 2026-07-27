@@ -56,6 +56,13 @@ const ROTULOS_DRE: Record<string, string> = {
   total: 'Total das despesas operacionais',
 }
 
+const ROTULOS_NATUREZA = {
+  custo_servico: 'Custo do serviço prestado',
+  servicos_terceiros: 'Serviços de terceiros',
+  depreciacoes: 'Depreciações',
+  outros: 'Outros custos e despesas',
+} as const
+
 function rotular(chave: string, dicionario: Record<string, string>): string {
   return dicionario[chave] ?? chave.replace(/_/g, ' ')
 }
@@ -345,6 +352,42 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
               valor={dre.lucro_liquido}
               onChange={(novo) => atualizar([...base, 'dre', 'lucro_liquido'], novo)}
             />
+          </Secao>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+          Natureza das Despesas e Custos ({exercicio.ano})
+        </h2>
+        <p className="mb-4 text-sm text-neutral-600">
+          A DRE do Domínio informa apenas o total das despesas operacionais. Ajuste aqui a
+          abertura por natureza que aparecerá na Nota 18 — o total da coluna deve fechar com
+          a DRE.
+        </p>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Secao titulo="Custos">
+            <CampoValor
+              rotulo={ROTULOS_NATUREZA.custo_servico}
+              valor={exercicio.natureza_despesas?.custo_servico ?? null}
+              onChange={(novo) =>
+                atualizar([...base, 'natureza_despesas', 'custo_servico'], novo)
+              }
+            />
+          </Secao>
+
+          <Secao titulo="Despesas gerais e administrativas">
+            {(['servicos_terceiros', 'depreciacoes', 'outros'] as const).map((chave) => (
+              <CampoValor
+                key={chave}
+                rotulo={ROTULOS_NATUREZA[chave]}
+                valor={exercicio.natureza_despesas?.[chave] ?? null}
+                onChange={(novo) =>
+                  atualizar([...base, 'natureza_despesas', chave], novo)
+                }
+              />
+            ))}
           </Secao>
         </div>
       </div>

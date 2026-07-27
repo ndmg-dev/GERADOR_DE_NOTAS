@@ -13,6 +13,11 @@ from tests.test_notas_builder import CONFIG, EMPRESA
 from tests.test_pdf_parser import BALANCO_TEXTO, DRE_TEXTO
 
 
+# Proporções das artes do papel timbrado de referência (Papel timbrado.docx).
+HEADER_PX = (2371, 447)
+FOOTER_PX = (2391, 299)
+
+
 def _png(caminho: Path, largura: int = 1200, altura: int = 200) -> Path:
     from PIL import Image
 
@@ -34,8 +39,8 @@ def notas():
 @pytest.fixture
 def empresa_com_timbrado(tmp_path):
     empresa = dict(EMPRESA)
-    empresa["timbrado_header_path"] = str(_png(tmp_path / "header.png"))
-    empresa["timbrado_footer_path"] = str(_png(tmp_path / "footer.png", altura=120))
+    empresa["timbrado_header_path"] = str(_png(tmp_path / "header.png", *HEADER_PX))
+    empresa["timbrado_footer_path"] = str(_png(tmp_path / "footer.png", *FOOTER_PX))
     return empresa
 
 
@@ -87,6 +92,59 @@ def test_timbrado_flutuante_atras_do_texto(documento) -> None:
         assert anchor.find(qn("wp:positionH")).get("relativeFrom") == "page"
         assert anchor.find(qn("wp:positionV")).get("relativeFrom") == "page"
         assert anchor.find(qn("a:graphic")) is not None
+
+
+def test_timbrado_reproduz_a_geometria_da_referencia(documento) -> None:
+    """As artes saem no tamanho e na posição do Papel timbrado.docx."""
+    doc, _ = documento
+    secao = doc.sections[0]
+
+    # (largura, altura) em twips no documento de referência.
+    esperado = {"header": (11397, 2145), "footer": (11477, 1436)}
+
+    for nome, parte in (("header", secao.header), ("footer", secao.footer)):
+        anchor = parte._element.findall(f".//{qn('wp:anchor')}")[0]
+        extent = anchor.find(qn("wp:extent"))
+        largura = int(extent.get("cx")) // 635
+        altura = int(extent.get("cy")) // 635
+        largura_ref, altura_ref = esperado[nome]
+
+        assert largura == largura_ref
+        # Tolerância de arredondamento pixel → EMU.
+        assert abs(altura - altura_ref) <= 5
+
+        # Arte centralizada horizontalmente na página.
+        offset_x = int(
+            anchor.find(qn("wp:positionH")).find(qn("wp:posOffset")).text
+        ) // 635
+        assert offset_x == (PAGE_SETUP["width_twips"] - largura_ref) // 2
+
+    # O rodapé é ancorado ao pé da página.
+    anchor_footer = secao.footer._element.findall(f".//{qn('wp:anchor')}")[0]
+    offset_y = int(
+        anchor_footer.find(qn("wp:positionV")).find(qn("wp:posOffset")).text
+    ) // 635
+    altura_footer = int(anchor_footer.find(qn("wp:extent")).get("cy")) // 635
+    assert offset_y == PAGE_SETUP["height_twips"] - altura_footer
+
+
+def test_texto_nao_colide_com_o_timbrado(documento) -> None:
+    """As margens precisam manter o corpo fora da arte do timbrado."""
+    doc, _ = documento
+    secao = doc.sections[0]
+
+    altura_header = (
+        int(secao.header._element.findall(f".//{qn('wp:extent')}")[0].get("cy")) // 635
+    )
+    altura_footer = (
+        int(secao.footer._element.findall(f".//{qn('wp:extent')}")[0].get("cy")) // 635
+    )
+
+    assert secao.top_margin.twips > altura_header
+    assert (
+        secao.page_height.twips - secao.bottom_margin.twips
+        < secao.page_height.twips - altura_footer
+    )
 
 
 def test_tabelas_com_preenchimento_e_bordas(documento) -> None:
