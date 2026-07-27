@@ -227,17 +227,18 @@ class DocxGeneratorService:
     def _add_title_block(
         self, doc: Document, empresa: dict[str, Any], config: dict[str, Any]
     ) -> None:
+        # Cabeçalho no mesmo padrão do documento de referência.
         for texto, tamanho, negrito in (
-            (empresa.get("nome", ""), 24, True),
+            (empresa.get("nome", "").upper(), 24, True),
             ("NOTAS EXPLICATIVAS ÀS DEMONSTRAÇÕES CONTÁBEIS", 24, True),
-            (f"EXERCÍCIO FINDO EM 31 DE DEZEMBRO DE {config.get('ano', '')}", 22, True),
-            ("(Valores expressos em reais - R$)", 20, False),
+            (f"Findas em 31 de Dezembro de {config.get('ano', '')}", 22, True),
+            ("Valores expressos em Reais (R$)", 20, False),
         ):
             if not texto:
                 continue
             paragrafo = doc.add_paragraph()
             paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = paragrafo.add_run(str(texto).upper() if negrito else str(texto))
+            run = paragrafo.add_run(str(texto))
             run.bold = negrito
             run.font.name = TABLE_STYLE["font"]
             run.font.size = Pt(tamanho / 2)
@@ -247,7 +248,7 @@ class DocxGeneratorService:
     def _add_nota(self, doc: Document, nota: Nota) -> None:
         titulo = doc.add_paragraph()
         titulo.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        run = titulo.add_run(f"NOTA {nota.numero:02d} — {nota.titulo.upper()}")
+        run = titulo.add_run(f"Nota {nota.numero:02d} — {nota.titulo}")
         run.bold = True
         run.font.name = TABLE_STYLE["font"]
         run.font.size = Pt(TABLE_STYLE["font_size_body"] / 2)
@@ -269,6 +270,14 @@ class DocxGeneratorService:
         run.font.size = Pt(TABLE_STYLE["font_size_body"] / 2)
 
     def _add_tabela(self, doc: Document, tabela: Tabela) -> None:
+        if tabela.titulo:
+            paragrafo = doc.add_paragraph()
+            paragrafo.paragraph_format.space_after = Pt(2)
+            run = paragrafo.add_run(tabela.titulo)
+            run.bold = True
+            run.font.name = TABLE_STYLE["font"]
+            run.font.size = Pt(TABLE_STYLE["font_size_table"] / 2)
+
         linhas_total = len(tabela.linhas) + 1 + (1 if tabela.total else 0)
         tabela_docx = doc.add_table(rows=linhas_total, cols=len(tabela.colunas))
         tabela_docx.autofit = True
@@ -368,22 +377,24 @@ class DocxGeneratorService:
         for socio in empresa.get("socios") or []:
             self._add_assinatura(
                 doc,
-                nome=socio.get("nome", ""),
-                cargo=socio.get("cargo") or "Sócio Administrador",
+                nome=socio.get("nome", "").upper(),
+                cargo=socio.get("cargo") or "REPRESENTANTE LEGAL",
                 documento=f"CPF: {socio['cpf']}" if socio.get("cpf") else None,
             )
 
         if empresa.get("contador_nome"):
-            documento = []
+            cargo = "CONTADOR"
             if empresa.get("contador_crc"):
-                documento.append(f"CRC: {empresa['contador_crc']}")
-            if empresa.get("contador_cpf"):
-                documento.append(f"CPF: {empresa['contador_cpf']}")
+                cargo = f"CONTADOR - CRC Nº {empresa['contador_crc']}"
             self._add_assinatura(
                 doc,
-                nome=empresa["contador_nome"],
-                cargo="Contador(a)",
-                documento=" — ".join(documento) if documento else None,
+                nome=empresa["contador_nome"].upper(),
+                cargo=cargo,
+                documento=(
+                    f"CPF: {empresa['contador_cpf']}"
+                    if empresa.get("contador_cpf")
+                    else None
+                ),
             )
 
     def _add_assinatura(

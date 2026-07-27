@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     data_aprovacao  VARCHAR(100),
     balanco_path    TEXT,
     dre_path        TEXT,
+    -- Exercícios comparativos: [{"ano": 2025, "balanco_path": ..., "dre_path": ...}]
+    exercicios      JSONB NOT NULL DEFAULT '[]',
     output_path     TEXT,
     dados_extraidos JSONB,
     error_message   TEXT,

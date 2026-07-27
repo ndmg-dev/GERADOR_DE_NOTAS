@@ -152,15 +152,28 @@ async def processar_job(job_id: uuid.UUID) -> None:
         try:
             parser = PdfParserService()
 
-            job.etapa_atual = "Lendo Balanço Patrimonial"
-            job.progresso = 20
-            await db.commit()
-            balanco = parser.parse_balanco(job.balanco_path or "")
+            entradas = job.exercicios or [
+                {
+                    "ano": job.ano_exercicio,
+                    "balanco_path": job.balanco_path,
+                    "dre_path": job.dre_path,
+                }
+            ]
 
-            job.etapa_atual = "Lendo DRE"
-            job.progresso = 50
-            await db.commit()
-            dre = parser.parse_dre(job.dre_path or "")
+            exercicios: list[dict[str, Any]] = []
+            for indice, entrada in enumerate(entradas):
+                ano = entrada.get("ano")
+                job.etapa_atual = f"Lendo demonstrativos de {ano}"
+                job.progresso = 10 + int(70 * indice / max(len(entradas), 1))
+                await db.commit()
+
+                exercicios.append(
+                    {
+                        "ano": ano,
+                        "balanco": parser.parse_balanco(entrada["balanco_path"]),
+                        "dre": parser.parse_dre(entrada["dre_path"]),
+                    }
+                )
 
             job.etapa_atual = "Montando notas explicativas"
             job.progresso = 80
@@ -168,11 +181,10 @@ async def processar_job(job_id: uuid.UUID) -> None:
 
             empresa = _empresa_para_dict(job.empresa)
             config = {"ano": job.ano_exercicio, "data_aprovacao": job.data_aprovacao}
-            notas = NotasBuilderService().build_all(balanco, dre, empresa, config)
+            notas = NotasBuilderService().build_all(exercicios, empresa, config)
 
             job.dados_extraidos = {
-                "balanco": balanco,
-                "dre": dre,
+                "exercicios": exercicios,
                 "empresa": empresa,
                 "config": config,
                 "notas": [nota.to_dict() for nota in notas],
@@ -212,6 +224,11 @@ async def processar(
     empresa_id: uuid.UUID = Form(...),
     ano: int = Form(..., ge=1900, le=2999),
     data_aprovacao: str | None = Form(default=None),
+    # Exercícios anteriores (opcionais), para as tabelas comparativas.
+    balanco_pdf_ant1: UploadFile | None = File(default=None),
+    dre_pdf_ant1: UploadFile | None = File(default=None),
+    balanco_pdf_ant2: UploadFile | None = File(default=None),
+    dre_pdf_ant2: UploadFile | None = File(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> ProcessarResponse:
     result = await db.execute(
@@ -220,16 +237,46 @@ async def processar(
     if result.scalar_one_or_none() is None:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    conteudo_balanco = await _validar_pdf(balanco_pdf, "Balanço Patrimonial")
-    conteudo_dre = await _validar_pdf(dre_pdf, "DRE")
-
     job_id = uuid.uuid4()
     storage = StorageService()
     destino = storage.job_upload_dir(str(job_id))
 
-    # Nome gerado pelo servidor — o nome original nunca é usado.
-    balanco_path = storage.save_bytes(destino, f"{uuid.uuid4()}.pdf", conteudo_balanco)
-    dre_path = storage.save_bytes(destino, f"{uuid.uuid4()}.pdf", conteudo_dre)
+    async def salvar(arquivo: UploadFile, rotulo: str) -> str:
+        conteudo = await _validar_pdf(arquivo, rotulo)
+        # Nome gerado pelo servidor — o nome original nunca é usado.
+        return str(storage.save_bytes(destino, f"{uuid.uuid4()}.pdf", conteudo))
+
+    balanco_path = await salvar(balanco_pdf, "Balanço Patrimonial")
+    dre_path = await salvar(dre_pdf, "DRE")
+
+    exercicios: list[dict[str, Any]] = [
+        {"ano": ano, "balanco_path": balanco_path, "dre_path": dre_path}
+    ]
+
+    anteriores = (
+        (balanco_pdf_ant1, dre_pdf_ant1, ano - 1),
+        (balanco_pdf_ant2, dre_pdf_ant2, ano - 2),
+    )
+    for balanco_ant, dre_ant, ano_ant in anteriores:
+        if balanco_ant is None and dre_ant is None:
+            continue
+        if balanco_ant is None or dre_ant is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Envie o Balanço e a DRE do exercício de {ano_ant}, "
+                    "ou nenhum dos dois"
+                ),
+            )
+        exercicios.append(
+            {
+                "ano": ano_ant,
+                "balanco_path": await salvar(
+                    balanco_ant, f"Balanço Patrimonial de {ano_ant}"
+                ),
+                "dre_path": await salvar(dre_ant, f"DRE de {ano_ant}"),
+            }
+        )
 
     job = Job(
         id=job_id,
@@ -237,8 +284,9 @@ async def processar(
         status="processing",
         ano_exercicio=ano,
         data_aprovacao=data_aprovacao,
-        balanco_path=str(balanco_path),
-        dre_path=str(dre_path),
+        balanco_path=balanco_path,
+        dre_path=dre_path,
+        exercicios=exercicios,
         progresso=0,
         etapa_atual="Processamento iniciado",
     )
@@ -327,7 +375,7 @@ async def gerar(
     if payload and payload.dados_editados:
         dados.update(payload.dados_editados)
 
-    if not dados.get("balanco") and not dados.get("dre"):
+    if not dados.get("exercicios"):
         raise HTTPException(
             status_code=409,
             detail="Não há dados extraídos para gerar o documento",
@@ -346,7 +394,7 @@ async def gerar(
         await db.commit()
 
         notas = NotasBuilderService().build_all(
-            dados.get("balanco") or {}, dados.get("dre") or {}, empresa, config
+            dados.get("exercicios") or [], empresa, config
         )
 
         storage = StorageService()

@@ -1,0 +1,3 @@
+As obrigações fiscais correspondem aos tributos e contribuições apurados pela Sociedade e ainda não recolhidos na data do balanço, incluindo os parcelamentos em curso, cujos vencimentos ocorrem nos prazos previstos pela legislação aplicável.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo totalizava R$ {total}, com a seguinte composição:

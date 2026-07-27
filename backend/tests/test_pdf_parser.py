@@ -151,7 +151,7 @@ def test_balanco_passivo_e_patrimonio(parser: PdfParserService) -> None:
     pl = balanco["patrimonio_liquido"]
 
     assert pc["fornecedores"]["total"] == pytest.approx(-300000.00)
-    assert pc["obrigacoes_tributarias"]["total"] == pytest.approx(-150967.11)
+    assert pc["obrigacoes_fiscais"]["total"] == pytest.approx(-150967.11)
     assert len(pc["obrigacoes_trabalhistas"]["itens"]) == 2
     assert pl["capital_social"] == pytest.approx(-500000.00)
     assert pl["total"] == pytest.approx(-765369.40)
@@ -225,6 +225,130 @@ def test_dre_tolerante_a_campos_ausentes(parser: PdfParserService) -> None:
     assert dre["lucro_liquido"] is None
     assert dre["custos"]["custos_aplicados"] is None
     assert dre["resultado_financeiro"]["liquido"] is None
+
+
+# ----------------------------------------- hierarquia reconstruída por soma
+
+# Nos PDFs reais do Domínio a extração perde a indentação dos níveis mais
+# profundos: contas sintéticas e analíticas saem na mesma coluna. A hierarquia
+# precisa ser reconstruída pela aritmética (sintética = soma das analíticas).
+BALANCO_ACHATADO = """
+Descricao                                        Saldo Atual
+ATIVO                                          1.000.000,00D
+  ATIVO CIRCULANTE                               315.540,60D
+   CAIXA E EQUIVALENTE DE CAIXA                  315.540,60D
+    CAIXA                                         38.594,72D
+    CAIXA GERAL                                   38.594,72D
+    BANCOS CONTA MOVIMENTO                        35.539,97D
+    CAIXA ECONOMICA FEDERAL C/C 3940-2            24.714,58D
+    BANCO SANTANDER AG 2371                            1,01D
+    BANCO SANTANDER AG 3029                       10.824,38D
+    APLICACOES FINANCEIRAS LIQUIDEZ IMEDIATA     241.405,91D
+    APLICACAO CAIXA ECONOMICA FEDERAL             63.244,88D
+    APLICACAO SANTANDER                          178.161,03D
+"""
+
+
+def test_hierarquia_achatada_lista_apenas_primeiro_nivel(
+    parser: PdfParserService,
+) -> None:
+    balanco = parser.parse_balanco_text(BALANCO_ACHATADO)
+    caixa = balanco["ativo"]["circulante"]["caixa_equivalentes"]
+
+    descricoes = [item["descricao"] for item in caixa["itens"]]
+    assert descricoes == [
+        "CAIXA",
+        "BANCOS CONTA MOVIMENTO",
+        "APLICACOES FINANCEIRAS LIQUIDEZ IMEDIATA",
+    ]
+
+
+def test_hierarquia_achatada_itens_somam_o_total(parser: PdfParserService) -> None:
+    """Sem a reconstrução, as analíticas dobrariam o total."""
+    balanco = parser.parse_balanco_text(BALANCO_ACHATADO)
+    caixa = balanco["ativo"]["circulante"]["caixa_equivalentes"]
+
+    soma = sum(item["valor"] for item in caixa["itens"])
+    assert soma == pytest.approx(caixa["total"])
+    assert soma == pytest.approx(315540.60)
+
+
+def test_agrupar_por_soma_mantem_folhas_independentes(
+    parser: PdfParserService,
+) -> None:
+    """Contas que não somam entre si permanecem todas no mesmo nível."""
+    texto = """
+Descricao                       Saldo Atual
+ATIVO                            1.000,00D
+  ATIVO CIRCULANTE                 600,00D
+   CAIXA E EQUIVALENTE DE CAIXA    600,00D
+    CONTA A                        100,00D
+    CONTA B                        200,00D
+    CONTA C                        300,00D
+"""
+    caixa = parser.parse_balanco_text(texto)["ativo"]["circulante"][
+        "caixa_equivalentes"
+    ]
+    assert [i["descricao"] for i in caixa["itens"]] == ["CONTA A", "CONTA B", "CONTA C"]
+
+
+def test_subgrupo_recupera_analiticas_do_mesmo_nivel(
+    parser: PdfParserService,
+) -> None:
+    """Subgrupo cujas analíticas saíram no mesmo recuo que ele.
+
+    É o caso de PROVISÕES dentro de OBRIGAÇÕES TRABALHISTAS no balanço real.
+    """
+    texto = """
+Descricao                                       Saldo Atual
+PASSIVO                                        1.000.000,00C
+  PASSIVO CIRCULANTE                             900.000,00C
+   OBRIGACOES TRABALHISTA E PREVIDENCIARIA       900.000,00C
+    OBRIGACOES COM O PESSOAL                     300.000,00C
+    OBRIGACOES SOCIAIS                           200.000,00C
+    PROVISOES                                    400.000,00C
+    PROVISOES PARA FERIAS                        250.000,00C
+    INSS SOBRE PROVISOES PARA FERIAS             100.000,00C
+    FGTS SOBRE PROVISOES PARA FERIAS              50.000,00C
+"""
+    pc = parser.parse_balanco_text(texto)["passivo"]["circulante"]
+
+    trabalhistas = pc["obrigacoes_trabalhistas"]
+    assert [i["descricao"] for i in trabalhistas["itens"]] == [
+        "OBRIGACOES COM O PESSOAL",
+        "OBRIGACOES SOCIAIS",
+        "PROVISOES",
+    ]
+
+    provisoes = pc["provisoes"]
+    assert provisoes["total"] == pytest.approx(-400000.00)
+    assert [i["descricao"] for i in provisoes["itens"]] == [
+        "PROVISOES PARA FERIAS",
+        "INSS SOBRE PROVISOES PARA FERIAS",
+        "FGTS SOBRE PROVISOES PARA FERIAS",
+    ]
+
+
+def test_depreciacao_nao_e_contada_em_dobro(parser: PdfParserService) -> None:
+    """A sintética de depreciação não pode somar com suas analíticas."""
+    texto = """
+Descricao                                    Saldo Atual
+ATIVO                                        1.000.000,00D
+  ATIVO NAO-CIRCULANTE                         835.775,38D
+   IMOBILIZADO                                 835.775,38D
+    EDIFICIOS                                  500.000,00D
+    MAQUINAS                                   400.000,00D
+    (-) DEPRECIACOES ACUMULADAS                 64.224,62C
+    (-) DEPRECIACAO DE EDIFICIOS                24.224,62C
+    (-) DEPRECIACAO DE MAQUINAS                 40.000,00C
+"""
+    imob = parser.parse_balanco_text(texto)["ativo"]["nao_circulante"]["imobilizado"]
+
+    assert imob["depreciacao_total"] == pytest.approx(64224.62)
+    assert imob["total_custo"] == pytest.approx(900000.00)
+    assert imob["total_custo"] - imob["depreciacao_total"] == pytest.approx(
+        imob["total_liquido"]
+    )
 
 
 # ------------------------------------------------- detect_extraction_method

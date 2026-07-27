@@ -1,0 +1,3 @@
+As provisões correspondem às obrigações constituídas pela Sociedade com base no regime de competência, abrangendo férias e os respectivos encargos sociais incidentes, reconhecidas em montante considerado suficiente pela Administração para fazer face aos compromissos correspondentes.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, assim composto:

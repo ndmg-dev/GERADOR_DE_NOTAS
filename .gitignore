@@ -10,3 +10,7 @@ backend/storage/
 *.docx
 !specs/**/*.docx
 .DS_Store
+
+# Demonstrativos reais de clientes — não versionar
+random_files/
+backend/bal.txt

@@ -8,12 +8,19 @@ import type {
 } from '@/types'
 import { api } from './client'
 
+/** Balanço e DRE de um exercício anterior, para as tabelas comparativas. */
+export interface ExercicioAnterior {
+  balancoPdf: File | null
+  drePdf: File | null
+}
+
 export interface ProcessarPayload {
   balancoPdf: File
   drePdf: File
   empresaId: string
   ano: number
   dataAprovacao: string
+  anteriores?: [ExercicioAnterior, ExercicioAnterior]
 }
 
 export async function processarNotas(
@@ -25,6 +32,12 @@ export async function processarNotas(
   form.append('empresa_id', payload.empresaId)
   form.append('ano', String(payload.ano))
   form.append('data_aprovacao', payload.dataAprovacao)
+
+  payload.anteriores?.forEach((anterior, indice) => {
+    const sufixo = `ant${indice + 1}`
+    if (anterior.balancoPdf) form.append(`balanco_pdf_${sufixo}`, anterior.balancoPdf)
+    if (anterior.drePdf) form.append(`dre_pdf_${sufixo}`, anterior.drePdf)
+  })
 
   const { data } = await api.post<ProcessarResponse>('/notas/processar', form)
   return data

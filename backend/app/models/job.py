@@ -27,6 +27,10 @@ class Job(Base):
 
     balanco_path: Mapped[str | None] = mapped_column(Text)
     dre_path: Mapped[str | None] = mapped_column(Text)
+    # [{"ano": 2025, "balanco_path": ..., "dre_path": ...}], do mais recente ao mais antigo
+    exercicios: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default="[]"
+    )
     output_path: Mapped[str | None] = mapped_column(Text)
 
     dados_extraidos: Mapped[dict[str, Any] | None] = mapped_column(JSONB)

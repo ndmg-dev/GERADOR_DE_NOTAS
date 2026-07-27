@@ -1,3 +1,0 @@
-O resultado do exercício findo em 31 de dezembro de {config.ano} apurado pela Sociedade foi de R$ {lucro}, cuja destinação será deliberada pelos sócios na forma prevista no contrato social e na legislação aplicável.
-
-A composição do resultado do exercício é demonstrada a seguir:

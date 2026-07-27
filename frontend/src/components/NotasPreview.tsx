@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { formatarValor, parsearValor } from '@/lib/format'
 import type { Balanco, ContaItem, DadosExtraidos, Dre, GrupoContas, Imobilizado } from '@/types'
 
@@ -18,12 +19,16 @@ const ROTULOS_BALANCO: Record<string, string> = {
   clientes: 'Clientes',
   estoques: 'Estoques',
   outros_creditos: 'Outros créditos',
+  cartao_corporativo: 'Cartão corporativo de colaboradores',
   realizavel_lp: 'Realizável a longo prazo',
   imobilizado: 'Imobilizado',
   intangivel: 'Intangível',
   fornecedores: 'Fornecedores',
-  obrigacoes_tributarias: 'Obrigações tributárias',
+  obrigacoes_fiscais: 'Obrigações fiscais',
+  parcelamentos: 'Parcelamentos',
   obrigacoes_trabalhistas: 'Obrigações trabalhistas',
+  adiantamento_clientes: 'Adiantamento de clientes',
+  provisoes: 'Provisões',
   outras_obrigacoes: 'Outras obrigações',
   emprestimos: 'Empréstimos e financiamentos',
   capital_social: 'Capital social',
@@ -115,6 +120,8 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
 }
 
 export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
+  const [indiceExercicio, setIndiceExercicio] = useState(0)
+
   const atualizar = (caminho: string[], valor: number | null) => {
     onChange(definirEmCaminho(dados, caminho, valor))
   }
@@ -197,14 +204,39 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
       return null
     })
 
-  const balanco: Balanco = dados.balanco
-  const dre: Dre = dados.dre
+  const exercicio = dados.exercicios[indiceExercicio]
+  if (!exercicio) {
+    return <p className="text-sm text-neutral-600">Nenhum exercício extraído.</p>
+  }
+
+  const balanco: Balanco = exercicio.balanco
+  const dre: Dre = exercicio.dre
+  const base = ['exercicios', String(indiceExercicio)]
 
   return (
     <div className="space-y-8">
+      {dados.exercicios.length > 1 && (
+        <div className="flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
+          {dados.exercicios.map((e, indice) => (
+            <button
+              key={e.ano}
+              type="button"
+              onClick={() => setIndiceExercicio(indice)}
+              className={`rounded px-3 py-1.5 text-sm ${
+                indice === indiceExercicio
+                  ? 'bg-neutral-900 text-white'
+                  : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              Exercício {e.ano}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div>
         <h2 className="mb-3 text-lg font-semibold text-neutral-900">
-          Balanço Patrimonial
+          Balanço Patrimonial de {exercicio.ano}
         </h2>
         <p className="mb-4 text-sm text-neutral-600">
           Confira os valores extraídos e corrija o que for necessário antes de gerar o
@@ -212,17 +244,9 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
         </p>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          {renderizarGrupos(balanco.ativo.circulante, ['balanco', 'ativo', 'circulante'])}
-          {renderizarGrupos(balanco.ativo.nao_circulante, [
-            'balanco',
-            'ativo',
-            'nao_circulante',
-          ])}
-          {renderizarGrupos(balanco.passivo.circulante, [
-            'balanco',
-            'passivo',
-            'circulante',
-          ])}
+          {renderizarGrupos(balanco.ativo.circulante, [...base, 'balanco', 'ativo', 'circulante'])}
+          {renderizarGrupos(balanco.ativo.nao_circulante, [...base, 'balanco', 'ativo', 'nao_circulante'])}
+          {renderizarGrupos(balanco.passivo.circulante, [...base, 'balanco', 'passivo', 'circulante'])}
           <Secao titulo="Patrimônio líquido">
             {Object.entries(balanco.patrimonio_liquido).map(([chave, valor]) => (
               <CampoValor
@@ -230,7 +254,7 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
                 rotulo={rotular(chave, ROTULOS_BALANCO)}
                 valor={valor}
                 onChange={(novo) =>
-                  atualizar(['balanco', 'patrimonio_liquido', chave], novo)
+                  atualizar([...base, 'balanco', 'patrimonio_liquido', chave], novo)
                 }
               />
             ))}
@@ -248,17 +272,17 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
             <CampoValor
               rotulo={ROTULOS_DRE.receita_bruta}
               valor={dre.receita_bruta}
-              onChange={(novo) => atualizar(['dre', 'receita_bruta'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'receita_bruta'], novo)}
             />
             <CampoValor
               rotulo={ROTULOS_DRE.deducoes}
               valor={dre.deducoes}
-              onChange={(novo) => atualizar(['dre', 'deducoes'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'deducoes'], novo)}
             />
             <CampoValor
               rotulo={ROTULOS_DRE.receita_liquida}
               valor={dre.receita_liquida}
-              onChange={(novo) => atualizar(['dre', 'receita_liquida'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'receita_liquida'], novo)}
             />
           </Secao>
 
@@ -268,13 +292,13 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
                 key={chave}
                 rotulo={rotular(chave, ROTULOS_DRE)}
                 valor={valor}
-                onChange={(novo) => atualizar(['dre', 'custos', chave], novo)}
+                onChange={(novo) => atualizar([...base, 'dre', 'custos', chave], novo)}
               />
             ))}
             <CampoValor
               rotulo={ROTULOS_DRE.lucro_bruto}
               valor={dre.lucro_bruto}
-              onChange={(novo) => atualizar(['dre', 'lucro_bruto'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'lucro_bruto'], novo)}
             />
           </Secao>
 
@@ -286,7 +310,7 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
                   rotulo={rotular(chave, ROTULOS_DRE)}
                   valor={dre.despesas_operacionais[chave]}
                   onChange={(novo) =>
-                    atualizar(['dre', 'despesas_operacionais', chave], novo)
+                    atualizar([...base, 'dre', 'despesas_operacionais', chave], novo)
                   }
                 />
               ),
@@ -301,7 +325,7 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
                   rotulo={rotular(chave, ROTULOS_DRE)}
                   valor={dre.resultado_financeiro[chave]}
                   onChange={(novo) =>
-                    atualizar(['dre', 'resultado_financeiro', chave], novo)
+                    atualizar([...base, 'dre', 'resultado_financeiro', chave], novo)
                   }
                 />
               ),
@@ -309,17 +333,17 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
             <CampoValor
               rotulo={ROTULOS_DRE.outras_receitas}
               valor={dre.outras_receitas}
-              onChange={(novo) => atualizar(['dre', 'outras_receitas'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'outras_receitas'], novo)}
             />
             <CampoValor
               rotulo={ROTULOS_DRE.resultado_operacional}
               valor={dre.resultado_operacional}
-              onChange={(novo) => atualizar(['dre', 'resultado_operacional'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'resultado_operacional'], novo)}
             />
             <CampoValor
               rotulo={ROTULOS_DRE.lucro_liquido}
               valor={dre.lucro_liquido}
-              onChange={(novo) => atualizar(['dre', 'lucro_liquido'], novo)}
+              onChange={(novo) => atualizar([...base, 'dre', 'lucro_liquido'], novo)}
             />
           </Secao>
         </div>

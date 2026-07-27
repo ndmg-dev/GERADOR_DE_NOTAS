@@ -1,3 +1,0 @@
-O ativo intangível é composto por direitos adquiridos pela Sociedade e está registrado ao custo de aquisição, deduzido da amortização acumulada, quando aplicável.
-
-Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, composto conforme segue:

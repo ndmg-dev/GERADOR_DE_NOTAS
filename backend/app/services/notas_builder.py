@@ -1,9 +1,12 @@
 """Montagem da estrutura das Notas Explicativas a partir dos dados extraídos.
 
-Cada nota é um objeto :class:`Nota` contendo blocos ordenados de parágrafo e
-tabela. Notas cujos grupos não existem no balanço (ex.: intangível zerado) são
-automaticamente omitidas, e a numeração final é sequencial sobre as notas que
-sobraram.
+A estrutura segue o modelo de referência da Soberana: 20 notas, com tabelas
+comparativas de até três exercícios lado a lado (exercício corrente primeiro).
+
+Cada nota é um objeto :class:`Nota` com blocos ordenados de parágrafo e tabela.
+Notas cujos grupos não existem no balanço (ex.: adiantamento de clientes
+zerado) são automaticamente omitidas, e a numeração final é sequencial sobre
+as notas que sobraram.
 
 Os textos descritivos vêm de arquivos ``.txt`` em ``app/templates/notas/``,
 permitindo que o time contábil os edite sem alterar código. Os parâmetros
@@ -14,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -24,8 +28,10 @@ TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates" / "notas"
 
 _PLACEHOLDER_RE = re.compile(r"\{([a-zA-Z_][\w]*(?:\.[\w]+)*)\}")
 
+MAX_EXERCICIOS = 3
 
-def formatar_brl(valor: float | None, *, vazio: str = "-") -> str:
+
+def formatar_brl(valor: float | None, *, vazio: str = "0,00") -> str:
     """Formata 1566336.51 → '1.566.336,51'."""
     if valor is None:
         return vazio
@@ -34,8 +40,52 @@ def formatar_brl(valor: float | None, *, vazio: str = "-") -> str:
 
 
 def positivo(valor: float | None) -> float | None:
-    """Valores de passivo/PL vêm credores (negativos); as notas exibem o módulo."""
+    """Contas credoras vêm negativas do Domínio; as notas exibem o módulo."""
     return None if valor is None else abs(valor)
+
+
+def _normalizar(texto: str) -> str:
+    sem_acento = "".join(
+        c for c in unicodedata.normalize("NFD", texto) if unicodedata.category(c) != "Mn"
+    )
+    return re.sub(r"\s+", " ", sem_acento.upper()).strip()
+
+
+_CONECTIVOS = {"a", "e", "o", "de", "da", "do", "das", "dos", "em", "no", "na", "ao"}
+# Siglas que devem permanecer em caixa alta.
+_SIGLAS = {
+    "FGTS", "INSS", "IRPJ", "CSLL", "ISS", "PIS", "COFINS", "IRRF", "PCC",
+    "ICMS", "IPI", "CPP", "RAT", "FAP", "PF", "PJ", "CC", "AG", "S/A",
+}
+
+
+def _titulo_legivel(descricao: str) -> str:
+    """'DUPLICATAS A RECEBER' → 'Duplicatas a Receber'.
+
+    Preserva siglas e capitaliza também depois de barras e hifens, para não
+    produzir coisas como 'Adiantamento a Socios/titular'.
+    """
+
+    def capitalizar(palavra: str) -> str:
+        if not palavra:
+            return palavra
+        # Trata separadores internos: SOCIOS/TITULAR, -PROF
+        for separador in ("/", "-"):
+            if separador in palavra:
+                return separador.join(capitalizar(p) for p in palavra.split(separador))
+        nucleo = palavra.strip("()")
+        if nucleo.upper() in _SIGLAS:
+            return palavra.replace(nucleo, nucleo.upper())
+        return palavra.capitalize()
+
+    palavras = descricao.strip().split()
+    saida = []
+    for indice, palavra in enumerate(palavras):
+        if indice > 0 and palavra.lower() in _CONECTIVOS:
+            saida.append(palavra.lower())
+        else:
+            saida.append(capitalizar(palavra.lower()))
+    return " ".join(saida)
 
 
 # --------------------------------------------------------------------------- #
@@ -57,11 +107,13 @@ class Tabela:
     colunas: list[str]
     linhas: list[list[str]]
     total: list[str] | None = None
+    titulo: str | None = None
     tipo: Literal["tabela"] = "tabela"
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "tipo": self.tipo,
+            "titulo": self.titulo,
             "colunas": self.colunas,
             "linhas": self.linhas,
             "total": self.total,
@@ -84,13 +136,30 @@ class Nota:
         }
 
 
+@dataclass
+class Exercicio:
+    """Um exercício social com seus demonstrativos já extraídos."""
+
+    ano: int
+    balanco: dict[str, Any] = field(default_factory=dict)
+    dre: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, dados: dict[str, Any]) -> Exercicio:
+        return cls(
+            ano=int(dados.get("ano") or 0),
+            balanco=dados.get("balanco") or {},
+            dre=dados.get("dre") or {},
+        )
+
+
 # --------------------------------------------------------------------------- #
 # Serviço
 # --------------------------------------------------------------------------- #
 
 
 class NotasBuilderService:
-    """Recebe os dicts do parser e monta a lista ordenada de notas."""
+    """Recebe os dados do parser e monta a lista ordenada de notas."""
 
     TEMPLATES = {
         "contexto": "nota_01_contexto.txt",
@@ -98,31 +167,31 @@ class NotasBuilderService:
         "praticas": "nota_03_praticas.txt",
         "caixa": "nota_04_caixa.txt",
         "clientes": "nota_05_clientes.txt",
-        "outros_creditos": "nota_06_outros_creditos.txt",
+        "creditos": "nota_06_creditos.txt",
         "realizavel_lp": "nota_07_realizavel_lp.txt",
         "imobilizado": "nota_08_imobilizado.txt",
-        "intangivel": "nota_09_intangivel.txt",
-        "fornecedores": "nota_10_fornecedores.txt",
-        "obrigacoes_tributarias": "nota_11_obrigacoes_tributarias.txt",
-        "obrigacoes_trabalhistas": "nota_12_obrigacoes_trabalhistas.txt",
-        "outras_obrigacoes": "nota_13_outras_obrigacoes.txt",
-        "capital_social": "nota_14_capital_social.txt",
-        "patrimonio_liquido": "nota_15_patrimonio_liquido.txt",
-        "receita": "nota_16_receita.txt",
-        "custos_despesas": "nota_17_custos_despesas.txt",
-        "resultado_financeiro": "nota_18_resultado_financeiro.txt",
-        "resultado_exercicio": "nota_19_resultado_exercicio.txt",
+        "fornecedores": "nota_09_fornecedores.txt",
+        "emprestimos": "nota_10_emprestimos.txt",
+        "obrigacoes_trabalhistas": "nota_11_obrigacoes_trabalhistas.txt",
+        "obrigacoes_fiscais": "nota_12_obrigacoes_fiscais.txt",
+        "adiantamento_clientes": "nota_13_adiantamento_clientes.txt",
+        "outras_obrigacoes": "nota_14_outras_obrigacoes.txt",
+        "provisoes": "nota_15_provisoes.txt",
+        "capital_social": "nota_16_capital_social.txt",
+        "receita": "nota_17_receita.txt",
+        "natureza_despesas": "nota_18_natureza_despesas.txt",
+        "resultado_financeiro": "nota_19_resultado_financeiro.txt",
         "aprovacao": "nota_20_aprovacao.txt",
     }
 
     def __init__(self, templates_dir: Path | None = None) -> None:
         self.templates_dir = templates_dir or TEMPLATES_DIR
         self._contexto: dict[str, Any] = {}
+        self._exercicios: list[Exercicio] = []
 
     # ------------------------------------------------------------ Templates
 
     def _render(self, chave: str, **extra: Any) -> list[str]:
-        """Lê o template e devolve seus parágrafos com os placeholders resolvidos."""
         caminho = self.templates_dir / self.TEMPLATES[chave]
         try:
             bruto = caminho.read_text(encoding="utf-8")
@@ -160,38 +229,46 @@ class NotasBuilderService:
 
     def build_all(
         self,
-        balanco: dict[str, Any],
-        dre: dict[str, Any],
+        exercicios: list[dict[str, Any]] | list[Exercicio],
         empresa: dict[str, Any],
         config: dict[str, Any],
     ) -> list[Nota]:
+        """Monta as notas a partir de um a três exercícios, do mais recente ao mais antigo."""
+        self._exercicios = [
+            e if isinstance(e, Exercicio) else Exercicio.from_dict(e)
+            for e in exercicios
+        ][:MAX_EXERCICIOS]
+
+        if not self._exercicios:
+            self._exercicios = [Exercicio(ano=int(config.get("ano") or 0))]
+
         self._contexto = {
             "empresa": empresa,
             "config": config,
-            "ano": config.get("ano"),
-            "ano_anterior": (config.get("ano") or 0) - 1,
+            "ano": self._exercicios[0].ano,
+            "anos": ", ".join(str(e.ano) for e in self._exercicios),
         }
 
         candidatas = [
             self.nota_contexto_operacional(empresa),
             self.nota_apresentacao(config),
-            self.nota_praticas_contabeis(balanco),
-            self.nota_caixa(balanco),
-            self.nota_clientes(balanco),
-            self.nota_outros_creditos(balanco),
-            self.nota_realizavel_lp(balanco),
-            self.nota_imobilizado(balanco),
-            self.nota_intangivel(balanco),
-            self.nota_fornecedores(balanco),
-            self.nota_obrigacoes_tributarias(balanco),
-            self.nota_obrigacoes_trabalhistas(balanco),
-            self.nota_outras_obrigacoes(balanco),
-            self.nota_capital_social(balanco, empresa),
-            self.nota_patrimonio_liquido(balanco),
-            self.nota_receita(dre),
-            self.nota_custos_despesas(dre),
-            self.nota_resultado_financeiro(dre),
-            self.nota_resultado_exercicio(dre),
+            self.nota_praticas_contabeis(),
+            self.nota_caixa(),
+            self.nota_clientes(),
+            self.nota_creditos(),
+            self.nota_realizavel_lp(),
+            self.nota_imobilizado(),
+            self.nota_fornecedores(),
+            self.nota_emprestimos(),
+            self.nota_obrigacoes_trabalhistas(),
+            self.nota_obrigacoes_fiscais(),
+            self.nota_adiantamento_clientes(),
+            self.nota_outras_obrigacoes(),
+            self.nota_provisoes(),
+            self.nota_capital_social(empresa),
+            self.nota_receita(),
+            self.nota_natureza_despesas(),
+            self.nota_resultado_financeiro(),
             self.nota_aprovacao(empresa, config),
         ]
 
@@ -199,61 +276,147 @@ class NotasBuilderService:
         for numero, nota in enumerate(notas, start=1):
             nota.numero = numero
 
-        logger.info("Notas montadas: %d de %d possíveis", len(notas), len(candidatas))
+        logger.info(
+            "Notas montadas: %d de %d possíveis (%d exercício[s])",
+            len(notas),
+            len(candidatas),
+            len(self._exercicios),
+        )
         return notas
 
     # ------------------------------------------------------------ Auxiliares
 
     @property
-    def _ano(self) -> str:
-        return str(self._contexto.get("ano") or "")
+    def _anos(self) -> list[str]:
+        return [str(e.ano) for e in self._exercicios]
 
-    def _tabela_de_grupo(
+    @property
+    def _atual(self) -> Exercicio:
+        return self._exercicios[0]
+
+    @staticmethod
+    def _caminho(dados: dict[str, Any], *chaves: str) -> Any:
+        atual: Any = dados
+        for chave in chaves:
+            if not isinstance(atual, dict):
+                return None
+            atual = atual.get(chave)
+            if atual is None:
+                return None
+        return atual
+
+    def _grupo_do_ano(
+        self, exercicio: Exercicio, caminho: tuple[str, ...]
+    ) -> dict[str, Any] | None:
+        return self._caminho(exercicio.balanco, *caminho)
+
+    def _tabela_comparativa(
         self,
-        grupo: dict[str, Any] | None,
+        caminhos: tuple[tuple[str, ...], ...],
         *,
         rotulo_total: str = "Total",
-        usar_modulo: bool = False,
+        usar_modulo: bool = True,
     ) -> Tabela | None:
-        """Converte ``{"total":..., "itens":[...]}`` em uma tabela de duas colunas."""
-        if not grupo:
-            return None
+        """Monta uma tabela com uma coluna por exercício.
 
-        def preparar(valor: float | None) -> float | None:
-            return positivo(valor) if usar_modulo else valor
+        ``caminhos`` permite reunir mais de um grupo do balanço na mesma nota
+        (ex.: obrigações fiscais + parcelamentos).
+        """
+        # Ordem das linhas: primeira aparição no exercício mais recente.
+        ordem: list[str] = []
+        valores: dict[str, dict[int, float]] = {}
+        rotulos: dict[str, str] = {}
+        totais: dict[int, float] = {}
+        encontrou = False
+
+        for exercicio in self._exercicios:
+            total_ano = 0.0
+            tem_grupo = False
+
+            for caminho in caminhos:
+                grupo = self._grupo_do_ano(exercicio, caminho)
+                if not grupo:
+                    continue
+                tem_grupo = True
+                encontrou = True
+
+                for item in grupo.get("itens", []):
+                    chave = _normalizar(item["descricao"])
+                    if chave not in valores:
+                        valores[chave] = {}
+                        rotulos[chave] = _titulo_legivel(item["descricao"])
+                        ordem.append(chave)
+                    valor = item["valor"]
+                    valores[chave][exercicio.ano] = (
+                        abs(valor) if usar_modulo else valor
+                    )
+
+                if grupo.get("total") is not None:
+                    total_ano += (
+                        abs(grupo["total"]) if usar_modulo else grupo["total"]
+                    )
+
+            if tem_grupo:
+                totais[exercicio.ano] = round(total_ano, 2)
+
+        if not encontrou:
+            return None
 
         linhas = [
-            [item["descricao"], formatar_brl(preparar(item["valor"]))]
-            for item in grupo.get("itens", [])
+            [rotulos[chave]]
+            + [
+                formatar_brl(valores[chave].get(e.ano, 0.0))
+                for e in self._exercicios
+            ]
+            for chave in ordem
         ]
-        total = preparar(grupo.get("total"))
 
-        if not linhas and total is None:
-            return None
+        # Sem composição analítica: a única linha usa o nome do próprio grupo,
+        # para não repetir "Total" duas vezes na tabela.
         if not linhas:
-            linhas = [[grupo.get("descricao", rotulo_total), formatar_brl(total)]]
+            grupo_atual = next(
+                (
+                    g
+                    for g in (self._grupo_do_ano(self._atual, c) for c in caminhos)
+                    if g
+                ),
+                None,
+            )
+            rotulo_linha = _titulo_legivel(
+                (grupo_atual or {}).get("descricao") or rotulo_total
+            )
+            linhas = [
+                [rotulo_linha]
+                + [formatar_brl(totais.get(e.ano, 0.0)) for e in self._exercicios]
+            ]
 
         return Tabela(
-            colunas=["Descrição", self._ano],
+            colunas=["Descrição"] + self._anos,
             linhas=linhas,
-            total=[rotulo_total, formatar_brl(total)],
+            total=[rotulo_total]
+            + [formatar_brl(totais.get(e.ano, 0.0)) for e in self._exercicios],
         )
 
     def _nota_de_grupo(
         self,
         chave_template: str,
         titulo: str,
-        grupo: dict[str, Any] | None,
+        caminhos: tuple[tuple[str, ...], ...],
         *,
-        usar_modulo: bool = False,
+        rotulo_total: str = "Total",
     ) -> Nota | None:
-        tabela = self._tabela_de_grupo(grupo, usar_modulo=usar_modulo)
+        tabela = self._tabela_comparativa(caminhos, rotulo_total=rotulo_total)
         if tabela is None:
             return None
 
-        total = positivo(grupo.get("total")) if usar_modulo else grupo.get("total")
+        total_atual = 0.0
+        for caminho in caminhos:
+            grupo = self._grupo_do_ano(self._atual, caminho)
+            if grupo and grupo.get("total") is not None:
+                total_atual += abs(grupo["total"])
+
         conteudo: list[Paragrafo | Tabela] = list(
-            self._paragrafos(chave_template, total=formatar_brl(total))
+            self._paragrafos(chave_template, total=formatar_brl(total_atual))
         )
         conteudo.append(tabela)
         return Nota(numero=0, titulo=titulo, tipo="misto", conteudo=conteudo)
@@ -263,7 +426,7 @@ class NotasBuilderService:
     def nota_contexto_operacional(self, empresa: dict[str, Any]) -> Nota | None:
         return Nota(
             numero=0,
-            titulo="Contexto Operacional",
+            titulo="Contexto operacional",
             tipo="texto",
             conteudo=list(self._paragrafos("contexto")),
         )
@@ -276,114 +439,230 @@ class NotasBuilderService:
             conteudo=list(self._paragrafos("apresentacao")),
         )
 
-    def nota_praticas_contabeis(self, balanco: dict[str, Any]) -> Nota | None:
+    def nota_praticas_contabeis(self) -> Nota | None:
         return Nota(
             numero=0,
-            titulo="Principais Práticas Contábeis Adotadas",
+            titulo="Sumário das principais práticas contábeis",
             tipo="texto",
             conteudo=list(self._paragrafos("praticas")),
         )
 
-    def nota_caixa(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "ativo", "circulante", "caixa_equivalentes")
-        return self._nota_de_grupo("caixa", "Caixa e Equivalentes de Caixa", grupo)
-
-    def nota_clientes(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "ativo", "circulante", "clientes")
-        return self._nota_de_grupo("clientes", "Clientes", grupo)
-
-    def nota_outros_creditos(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "ativo", "circulante", "outros_creditos")
-        return self._nota_de_grupo("outros_creditos", "Outros Créditos", grupo)
-
-    def nota_realizavel_lp(self, balanco: dict[str, Any]) -> Nota | None:
-        nao_circulante = self._caminho(balanco, "ativo", "nao_circulante") or {}
-        grupo = nao_circulante.get("realizavel_lp") or nao_circulante.get(
-            "outros_creditos"
-        )
+    def nota_caixa(self) -> Nota | None:
         return self._nota_de_grupo(
-            "realizavel_lp", "Ativo Realizável a Longo Prazo", grupo
+            "caixa",
+            "Caixa e equivalentes de Caixa",
+            ((("ativo", "circulante", "caixa_equivalentes")),),
         )
 
-    def nota_imobilizado(self, balanco: dict[str, Any]) -> Nota | None:
-        imob = self._caminho(balanco, "ativo", "nao_circulante", "imobilizado")
+    def nota_clientes(self) -> Nota | None:
+        return self._nota_de_grupo(
+            "clientes",
+            "Contas a receber de clientes",
+            ((("ativo", "circulante", "clientes")),),
+        )
+
+    def nota_creditos(self) -> Nota | None:
+        return self._nota_de_grupo(
+            "creditos",
+            "Créditos",
+            (
+                ("ativo", "circulante", "outros_creditos"),
+                ("ativo", "circulante", "cartao_corporativo"),
+            ),
+        )
+
+    def nota_realizavel_lp(self) -> Nota | None:
+        nota = self._nota_de_grupo(
+            "realizavel_lp",
+            "Realizável a Longo Prazo",
+            ((("ativo", "nao_circulante", "realizavel_lp")),),
+        )
+        if nota is not None:
+            return nota
+        return self._nota_de_grupo(
+            "realizavel_lp",
+            "Realizável a Longo Prazo",
+            ((("ativo", "nao_circulante", "outros_creditos")),),
+        )
+
+    def nota_imobilizado(self) -> Nota | None:
+        """Tabela de movimentação, no formato do modelo de referência.
+
+        O saldo anterior é derivado do balanço do exercício precedente quando
+        ele foi enviado; aquisições, baixas e a depreciação do período não
+        constam do balanço e ficam editáveis no passo de revisão.
+        """
+        imob = self._caminho(
+            self._atual.balanco, "ativo", "nao_circulante", "imobilizado"
+        )
         if not imob or not imob.get("grupos"):
             return None
 
-        linhas = [
-            [
-                grupo["nome"],
-                formatar_brl(grupo.get("custo")),
-                formatar_brl(-abs(grupo["depreciacao"])) if grupo.get("depreciacao") else "-",
-                formatar_brl(grupo.get("liquido")),
-            ]
-            for grupo in imob["grupos"]
-        ]
+        anterior = self._exercicios[1] if len(self._exercicios) > 1 else None
+        imob_anterior = (
+            self._caminho(anterior.balanco, "ativo", "nao_circulante", "imobilizado")
+            if anterior
+            else None
+        )
+        saldos_anteriores = {
+            _normalizar(g["nome"]): g.get("custo", 0.0)
+            for g in (imob_anterior or {}).get("grupos", [])
+        }
 
+        intangivel = self._caminho(
+            self._atual.balanco, "ativo", "nao_circulante", "intangivel"
+        )
+
+        linhas: list[list[str]] = []
+        for grupo in imob["grupos"]:
+            chave = _normalizar(grupo["nome"])
+            linhas.append(
+                [
+                    _titulo_legivel(grupo["nome"]),
+                    formatar_brl(saldos_anteriores.get(chave, 0.0)),
+                    formatar_brl(0.0),  # aquisições — editável
+                    formatar_brl(0.0),  # baixas — editável
+                    formatar_brl(0.0),  # depreciação do período — editável
+                    formatar_brl(grupo.get("custo")),
+                ]
+            )
+
+        intangivel_saldo_anterior = (
+            (
+                self._caminho(anterior.balanco, "ativo", "nao_circulante", "intangivel")
+                or {}
+            ).get("total")
+            or 0.0
+            if anterior
+            else 0.0
+        )
+        if intangivel and intangivel.get("total"):
+            linhas.append(
+                [
+                    "Intangível",
+                    formatar_brl(intangivel_saldo_anterior),
+                    formatar_brl(0.0),
+                    formatar_brl(0.0),
+                    formatar_brl(0.0),
+                    formatar_brl(intangivel["total"]),
+                ]
+            )
+
+        deprec_atual = imob.get("depreciacao_total") or 0.0
+        deprec_anterior = (imob_anterior or {}).get("depreciacao_total") or 0.0
+        linhas.append(
+            [
+                "(-) Depreciação Acumulada",
+                formatar_brl(-deprec_anterior if deprec_anterior else 0.0),
+                formatar_brl(0.0),
+                formatar_brl(0.0),
+                formatar_brl(-(deprec_atual - deprec_anterior))
+                if deprec_anterior
+                else formatar_brl(0.0),
+                formatar_brl(-deprec_atual),
+            ]
+        )
+
+        # Os dois totais somam as mesmas parcelas (bens + intangível − depreciação).
+        total_anterior = (
+            sum(saldos_anteriores.values())
+            + intangivel_saldo_anterior
+            - deprec_anterior
+        )
+        total_atual = (imob.get("total_liquido") or 0.0) + (
+            (intangivel or {}).get("total") or 0.0
+        )
+
+        anterior_rotulo = (
+            f"Saldo {anterior.ano}" if anterior else "Saldo anterior"
+        )
         tabela = Tabela(
-            colunas=["Descrição", "Custo", "Depreciação Acumulada", "Valor Líquido"],
+            titulo="a) Valor contábil",
+            colunas=[
+                "Imobilizado/Intangível",
+                anterior_rotulo,
+                "Aquisições",
+                "Baixas",
+                "Depreciação",
+                f"Saldo {self._atual.ano}",
+            ],
             linhas=linhas,
             total=[
-                "Total",
-                formatar_brl(imob.get("total_custo")),
+                "Total Imobilizado",
+                formatar_brl(total_anterior),
+                formatar_brl(0.0),
+                formatar_brl(0.0),
                 formatar_brl(
-                    -abs(imob["depreciacao_total"])
-                    if imob.get("depreciacao_total")
-                    else None
+                    -(deprec_atual - deprec_anterior) if deprec_anterior else 0.0
                 ),
-                formatar_brl(imob.get("total_liquido")),
+                formatar_brl(total_atual),
             ],
         )
 
         conteudo: list[Paragrafo | Tabela] = list(
             self._paragrafos(
                 "imobilizado",
-                total=formatar_brl(imob.get("total_liquido")),
-                depreciacao=formatar_brl(imob.get("depreciacao_total")),
+                total=formatar_brl(total_atual),
+                depreciacao=formatar_brl(deprec_atual),
             )
         )
-        conteudo.append(tabela)
+        conteudo.insert(0, tabela)
         return Nota(numero=0, titulo="Imobilizado", tipo="misto", conteudo=conteudo)
 
-    def nota_intangivel(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "ativo", "nao_circulante", "intangivel")
-        if not grupo or not grupo.get("total"):
-            return None
-        return self._nota_de_grupo("intangivel", "Intangível", grupo)
-
-    def nota_fornecedores(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "passivo", "circulante", "fornecedores")
+    def nota_fornecedores(self) -> Nota | None:
         return self._nota_de_grupo(
-            "fornecedores", "Fornecedores", grupo, usar_modulo=True
+            "fornecedores",
+            "Fornecedores",
+            ((("passivo", "circulante", "fornecedores")),),
         )
 
-    def nota_obrigacoes_tributarias(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "passivo", "circulante", "obrigacoes_tributarias")
+    def nota_emprestimos(self) -> Nota | None:
         return self._nota_de_grupo(
-            "obrigacoes_tributarias", "Obrigações Tributárias", grupo, usar_modulo=True
+            "emprestimos",
+            "Empréstimos e Financiamentos",
+            ((("passivo", "circulante", "emprestimos")),),
         )
 
-    def nota_obrigacoes_trabalhistas(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(
-            balanco, "passivo", "circulante", "obrigacoes_trabalhistas"
-        )
+    def nota_obrigacoes_trabalhistas(self) -> Nota | None:
         return self._nota_de_grupo(
             "obrigacoes_trabalhistas",
-            "Obrigações Trabalhistas e Previdenciárias",
-            grupo,
-            usar_modulo=True,
+            "Obrigações Trabalhistas",
+            ((("passivo", "circulante", "obrigacoes_trabalhistas")),),
         )
 
-    def nota_outras_obrigacoes(self, balanco: dict[str, Any]) -> Nota | None:
-        grupo = self._caminho(balanco, "passivo", "circulante", "outras_obrigacoes")
+    def nota_obrigacoes_fiscais(self) -> Nota | None:
         return self._nota_de_grupo(
-            "outras_obrigacoes", "Outras Obrigações", grupo, usar_modulo=True
+            "obrigacoes_fiscais",
+            "Obrigações Fiscais",
+            (
+                ("passivo", "circulante", "obrigacoes_fiscais"),
+                ("passivo", "circulante", "parcelamentos"),
+            ),
         )
 
-    def nota_capital_social(
-        self, balanco: dict[str, Any], empresa: dict[str, Any]
-    ) -> Nota | None:
-        capital = positivo(self._caminho(balanco, "patrimonio_liquido", "capital_social"))
+    def nota_adiantamento_clientes(self) -> Nota | None:
+        return self._nota_de_grupo(
+            "adiantamento_clientes",
+            "Adiantamento de Clientes",
+            ((("passivo", "circulante", "adiantamento_clientes")),),
+        )
+
+    def nota_outras_obrigacoes(self) -> Nota | None:
+        return self._nota_de_grupo(
+            "outras_obrigacoes",
+            "Outras Obrigações",
+            ((("passivo", "circulante", "outras_obrigacoes")),),
+        )
+
+    def nota_provisoes(self) -> Nota | None:
+        return self._nota_de_grupo(
+            "provisoes", "Provisões", ((("passivo", "circulante", "provisoes")),)
+        )
+
+    def nota_capital_social(self, empresa: dict[str, Any]) -> Nota | None:
+        capital = positivo(
+            self._caminho(self._atual.balanco, "patrimonio_liquido", "capital_social")
+        )
         if capital is None:
             return None
 
@@ -395,189 +674,152 @@ class NotasBuilderService:
         if socios:
             conteudo.append(
                 Tabela(
-                    colunas=["Sócio", "CPF", "Participação"],
+                    titulo="Quadro societário",
+                    colunas=["Sócio", "Participação"],
                     linhas=[
-                        [
-                            socio.get("nome", ""),
-                            socio.get("cpf", "") or "",
-                            socio.get("participacao", "") or "",
-                        ]
+                        [socio.get("nome", ""), socio.get("participacao") or ""]
                         for socio in socios
                     ],
-                    total=["Total", "", formatar_brl(capital)],
+                    total=["Total", f"R$ {formatar_brl(capital)}"],
                 )
             )
 
         return Nota(numero=0, titulo="Capital Social", tipo="misto", conteudo=conteudo)
 
-    def nota_patrimonio_liquido(self, balanco: dict[str, Any]) -> Nota | None:
-        pl = balanco.get("patrimonio_liquido") or {}
-        campos = [
-            ("Capital Social", pl.get("capital_social")),
-            ("Reservas de Lucros", pl.get("reservas")),
-            ("Ajustes de Avaliação Patrimonial", pl.get("ajustes")),
-        ]
-        linhas = [
-            [rotulo, formatar_brl(positivo(valor))]
-            for rotulo, valor in campos
-            if valor is not None
-        ]
-        if not linhas:
+    def nota_receita(self) -> Nota | None:
+        if all(e.dre.get("receita_bruta") is None for e in self._exercicios):
             return None
 
-        conteudo: list[Paragrafo | Tabela] = list(
-            self._paragrafos(
-                "patrimonio_liquido", total=formatar_brl(positivo(pl.get("total")))
-            )
-        )
-        conteudo.append(
-            Tabela(
-                colunas=["Descrição", self._ano],
-                linhas=linhas,
-                total=["Total", formatar_brl(positivo(pl.get("total")))],
-            )
-        )
-        return Nota(
-            numero=0, titulo="Patrimônio Líquido", tipo="misto", conteudo=conteudo
-        )
+        def linha(rotulo: str, chave: str) -> list[str]:
+            return [rotulo] + [
+                formatar_brl(positivo(e.dre.get(chave))) for e in self._exercicios
+            ]
 
-    def nota_receita(self, dre: dict[str, Any]) -> Nota | None:
-        campos = [
-            ("Receita Operacional Bruta", dre.get("receita_bruta")),
-            ("(-) Deduções da Receita Bruta", dre.get("deducoes")),
-        ]
-        linhas = [
-            [rotulo, formatar_brl(positivo(valor))]
-            for rotulo, valor in campos
-            if valor is not None
-        ]
-        if not linhas:
-            return None
+        tabela = Tabela(
+            colunas=["Receita Operacional Bruta"] + self._anos,
+            linhas=[
+                linha("Receita Bruta", "receita_bruta"),
+                linha("(-) Deduções da Receita Bruta", "deducoes"),
+            ],
+            total=["Receita Operacional Líquida"]
+            + [
+                formatar_brl(positivo(e.dre.get("receita_liquida")))
+                for e in self._exercicios
+            ],
+        )
 
         conteudo: list[Paragrafo | Tabela] = list(
             self._paragrafos(
                 "receita",
-                receita_bruta=formatar_brl(positivo(dre.get("receita_bruta"))),
-                receita_liquida=formatar_brl(positivo(dre.get("receita_liquida"))),
+                receita_bruta=formatar_brl(positivo(self._atual.dre.get("receita_bruta"))),
+                receita_liquida=formatar_brl(
+                    positivo(self._atual.dre.get("receita_liquida"))
+                ),
             )
         )
-        conteudo.append(
-            Tabela(
-                colunas=["Descrição", self._ano],
-                linhas=linhas,
-                total=[
-                    "Receita Operacional Líquida",
-                    formatar_brl(positivo(dre.get("receita_liquida"))),
-                ],
-            )
-        )
+        conteudo.append(tabela)
         return Nota(
-            numero=0, titulo="Receita Operacional Líquida", tipo="misto",
+            numero=0,
+            titulo="Receita Operacional Líquida",
+            tipo="misto",
             conteudo=conteudo,
         )
 
-    def nota_custos_despesas(self, dre: dict[str, Any]) -> Nota | None:
-        custos = dre.get("custos") or {}
-        despesas = dre.get("despesas_operacionais") or {}
-
-        campos = [
-            ("Custos Aplicados", custos.get("custos_aplicados")),
-            ("Mão de Obra Direta", custos.get("mao_obra_direta")),
-            ("Despesas com Pessoal", despesas.get("despesas_pessoal")),
-            ("Impostos, Taxas e Contribuições", despesas.get("impostos_taxas")),
-            ("Despesas Gerais", despesas.get("despesas_gerais")),
-        ]
-        linhas = [
-            [rotulo, formatar_brl(positivo(valor))]
-            for rotulo, valor in campos
-            if valor is not None
-        ]
-        if not linhas:
+    def nota_natureza_despesas(self) -> Nota | None:
+        """Matriz Custos x Despesas Gerais e Administrativas, uma tabela por exercício."""
+        if all(not e.dre for e in self._exercicios):
             return None
 
-        total = None
-        if custos.get("custos_aplicados") is not None or despesas.get("total") is not None:
-            total = abs(custos.get("custos_aplicados") or 0.0) + abs(
-                despesas.get("total") or 0.0
-            )
+        conteudo: list[Paragrafo | Tabela] = list(self._paragrafos("natureza_despesas"))
+        gerou = False
 
-        conteudo: list[Paragrafo | Tabela] = list(
-            self._paragrafos(
-                "custos_despesas",
-                despesas_total=formatar_brl(positivo(despesas.get("total"))),
+        for exercicio in self._exercicios:
+            dre = exercicio.dre
+            if not dre:
+                continue
+
+            custos = dre.get("custos") or {}
+            despesas = dre.get("despesas_operacionais") or {}
+
+            custo_servico = abs(custos.get("custos_aplicados") or 0.0) + abs(
+                custos.get("mao_obra_direta") or 0.0
             )
-        )
-        conteudo.append(
-            Tabela(
-                colunas=["Descrição", self._ano],
-                linhas=linhas,
-                total=["Total", formatar_brl(total)],
+            servicos = abs(despesas.get("servicos_terceiros") or 0.0)
+            depreciacoes = abs(despesas.get("depreciacoes") or 0.0)
+            total_despesas = abs(despesas.get("total") or 0.0)
+            outros = max(total_despesas - servicos - depreciacoes, 0.0)
+
+            linhas = [
+                ["Custo do Serviço Prestado", formatar_brl(custo_servico), formatar_brl(0.0), formatar_brl(custo_servico)],
+                ["Serviços de Terceiros", formatar_brl(0.0), formatar_brl(servicos), formatar_brl(servicos)],
+                ["Depreciações", formatar_brl(0.0), formatar_brl(depreciacoes), formatar_brl(depreciacoes)],
+                ["Outros Custos e Despesas", formatar_brl(0.0), formatar_brl(outros), formatar_brl(outros)],
+            ]
+
+            conteudo.append(
+                Tabela(
+                    titulo=f"Exercício de {exercicio.ano}",
+                    colunas=[
+                        "Natureza dos Custos e Despesas",
+                        "Custos",
+                        "Despesas Gerais e Administrativas",
+                        "Total",
+                    ],
+                    linhas=linhas,
+                    total=[
+                        "Total",
+                        formatar_brl(custo_servico),
+                        formatar_brl(servicos + depreciacoes + outros),
+                        formatar_brl(custo_servico + servicos + depreciacoes + outros),
+                    ],
+                )
             )
-        )
+            gerou = True
+
+        if not gerou:
+            return None
+
         return Nota(
-            numero=0, titulo="Custos e Despesas Operacionais", tipo="misto",
+            numero=0,
+            titulo="Informações sobre a Natureza das Despesas e Custos",
+            tipo="misto",
             conteudo=conteudo,
         )
 
-    def nota_resultado_financeiro(self, dre: dict[str, Any]) -> Nota | None:
-        rf = dre.get("resultado_financeiro") or {}
-        campos = [
-            ("Receitas Financeiras", rf.get("receitas_financeiras")),
-            ("(-) Despesas Financeiras", rf.get("despesas_financeiras")),
-        ]
-        linhas = [
-            [rotulo, formatar_brl(positivo(valor))]
-            for rotulo, valor in campos
-            if valor is not None
-        ]
-        if not linhas:
+    def nota_resultado_financeiro(self) -> Nota | None:
+        rf_atual = self._atual.dre.get("resultado_financeiro") or {}
+        if not rf_atual or all(v is None for v in rf_atual.values()):
             return None
+
+        def linha(rotulo: str, chave: str, *, negativo: bool = False) -> list[str]:
+            valores = []
+            for e in self._exercicios:
+                rf = e.dre.get("resultado_financeiro") or {}
+                valor = positivo(rf.get(chave))
+                if valor is not None and negativo:
+                    valor = -valor
+                valores.append(formatar_brl(valor))
+            return [rotulo] + valores
+
+        tabela = Tabela(
+            colunas=["Descrição"] + self._anos,
+            linhas=[
+                linha("Receitas Financeiras", "receitas_financeiras"),
+                linha("Outras Despesas Financeiras", "despesas_financeiras", negativo=True),
+            ],
+            total=["Resultado Financeiro"]
+            + [
+                formatar_brl((e.dre.get("resultado_financeiro") or {}).get("liquido"))
+                for e in self._exercicios
+            ],
+        )
 
         conteudo: list[Paragrafo | Tabela] = list(
             self._paragrafos("resultado_financeiro")
         )
-        conteudo.append(
-            Tabela(
-                colunas=["Descrição", self._ano],
-                linhas=linhas,
-                total=[
-                    "Resultado Financeiro Líquido",
-                    formatar_brl(positivo(rf.get("liquido"))),
-                ],
-            )
-        )
+        conteudo.append(tabela)
         return Nota(
             numero=0, titulo="Resultado Financeiro", tipo="misto", conteudo=conteudo
-        )
-
-    def nota_resultado_exercicio(self, dre: dict[str, Any]) -> Nota | None:
-        lucro = dre.get("lucro_liquido")
-        if lucro is None:
-            return None
-
-        campos = [
-            ("Resultado Operacional", dre.get("resultado_operacional")),
-            ("Outras Receitas", dre.get("outras_receitas")),
-        ]
-        linhas = [
-            [rotulo, formatar_brl(positivo(valor))]
-            for rotulo, valor in campos
-            if valor is not None
-        ]
-
-        conteudo: list[Paragrafo | Tabela] = list(
-            self._paragrafos("resultado_exercicio", lucro=formatar_brl(positivo(lucro)))
-        )
-        if linhas:
-            conteudo.append(
-                Tabela(
-                    colunas=["Descrição", self._ano],
-                    linhas=linhas,
-                    total=["Resultado Líquido do Exercício", formatar_brl(positivo(lucro))],
-                )
-            )
-        return Nota(
-            numero=0, titulo="Resultado do Exercício", tipo="misto", conteudo=conteudo
         )
 
     def nota_aprovacao(
@@ -585,20 +827,7 @@ class NotasBuilderService:
     ) -> Nota | None:
         return Nota(
             numero=0,
-            titulo="Aprovação das Demonstrações Contábeis",
+            titulo="Aprovação das Demonstrações Financeiras",
             tipo="texto",
             conteudo=list(self._paragrafos("aprovacao")),
         )
-
-    # ------------------------------------------------------------ Utilitário
-
-    @staticmethod
-    def _caminho(dados: dict[str, Any], *chaves: str) -> Any:
-        atual: Any = dados
-        for chave in chaves:
-            if not isinstance(atual, dict):
-                return None
-            atual = atual.get(chave)
-            if atual is None:
-                return None
-        return atual

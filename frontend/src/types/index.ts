@@ -138,9 +138,16 @@ export interface ConfigNotas {
   data_aprovacao: string | null
 }
 
-export interface DadosExtraidos {
+/** Um exercício social com seus demonstrativos já extraídos. */
+export interface Exercicio {
+  ano: number
   balanco: Balanco
   dre: Dre
+}
+
+export interface DadosExtraidos {
+  /** Do exercício mais recente para o mais antigo (até 3). */
+  exercicios: Exercicio[]
   empresa: Record<string, unknown>
   config: ConfigNotas
   notas: NotaPreview[]
@@ -153,6 +160,7 @@ export interface BlocoParagrafo {
 
 export interface BlocoTabela {
   tipo: 'tabela'
+  titulo: string | null
   colunas: string[]
   linhas: string[][]
   total: string[] | null

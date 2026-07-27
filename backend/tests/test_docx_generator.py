@@ -23,12 +23,12 @@ def _png(caminho: Path, largura: int = 1200, altura: int = 200) -> Path:
 @pytest.fixture
 def notas():
     parser = PdfParserService()
-    return NotasBuilderService().build_all(
-        parser.parse_balanco_text(BALANCO_TEXTO),
-        parser.parse_dre_text(DRE_TEXTO),
-        EMPRESA,
-        CONFIG,
-    )
+    exercicio = {
+        "ano": 2025,
+        "balanco": parser.parse_balanco_text(BALANCO_TEXTO),
+        "dre": parser.parse_dre_text(DRE_TEXTO),
+    }
+    return NotasBuilderService().build_all([exercicio], EMPRESA, CONFIG)
 
 
 @pytest.fixture
@@ -68,9 +68,8 @@ def test_todas_as_notas_presentes(documento, notas) -> None:
     doc, _ = documento
     texto = "\n".join(p.text for p in doc.paragraphs)
 
-    assert len(notas) == 20
     for nota in notas:
-        assert f"NOTA {nota.numero:02d} — {nota.titulo.upper()}" in texto
+        assert f"Nota {nota.numero:02d} — {nota.titulo}" in texto
 
 
 def test_timbrado_flutuante_atras_do_texto(documento) -> None:
@@ -120,14 +119,15 @@ def test_bloco_de_assinaturas(documento) -> None:
     doc, _ = documento
     texto = "\n".join(p.text for p in doc.paragraphs)
 
+    # O modelo de referência assina em caixa alta, com cargo e CPF.
     for socio in EMPRESA["socios"]:
-        assert socio["nome"] in texto
+        assert socio["nome"].upper() in texto
         assert f"CPF: {socio['cpf']}" in texto
         assert socio["cargo"] in texto
 
-    assert EMPRESA["contador_nome"] in texto
-    assert f"CRC: {EMPRESA['contador_crc']}" in texto
-    assert "Contador(a)" in texto
+    assert EMPRESA["contador_nome"].upper() in texto
+    assert f"CONTADOR - CRC Nº {EMPRESA['contador_crc']}" in texto
+    assert f"CPF: {EMPRESA['contador_cpf']}" in texto
 
 
 def test_titulo_do_documento(documento) -> None:
@@ -135,7 +135,8 @@ def test_titulo_do_documento(documento) -> None:
     texto = "\n".join(p.text for p in doc.paragraphs)
 
     assert "NOTAS EXPLICATIVAS ÀS DEMONSTRAÇÕES CONTÁBEIS" in texto
-    assert "EXERCÍCIO FINDO EM 31 DE DEZEMBRO DE 2025" in texto
+    assert "Findas em 31 de Dezembro de 2025" in texto
+    assert "Valores expressos em Reais (R$)" in texto
     assert EMPRESA["nome"].upper() in texto
 
 

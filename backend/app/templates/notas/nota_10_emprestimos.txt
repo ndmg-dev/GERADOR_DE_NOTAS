@@ -1,0 +1,3 @@
+Referem-se a operações de empréstimos e financiamentos contratadas pela Sociedade junto a instituições financeiras, registradas pelos valores contratados acrescidos dos encargos incorridos até a data do balanço.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, conforme demonstrado a seguir:

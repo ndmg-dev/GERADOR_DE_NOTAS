@@ -1,4 +1,4 @@
-"""Testes do construtor de notas."""
+"""Testes do construtor de notas (estrutura do modelo de referência)."""
 
 import pytest
 
@@ -7,116 +7,217 @@ from app.services.pdf_parser import PdfParserService
 from tests.test_pdf_parser import BALANCO_TEXTO, DRE_TEXTO
 
 EMPRESA = {
-    "nome": "Soberana Serviços Ltda.",
-    "cnpj": "12.345.678/0001-90",
-    "endereco": "Rua das Acácias, 100 — Goiânia/GO",
+    "nome": "Soberana Faculdade de Saúde de Petrolina LTDA",
+    "cnpj": "19.265.047/0001-05",
+    "endereco": "Av. Coronel Antônio Honorato Viana, 1526 — Petrolina/PE",
     "socios": [
         {
-            "nome": "Albert Mario da Silva",
-            "cpf": "657.123.456-00",
-            "participacao": "R$ 250.000,00",
-            "cargo": "Sócio Administrador",
+            "nome": "Albert Mario Antonio Luis Carlos Euclides de Cornides",
+            "cpf": "657.760.205-06",
+            "participacao": "R$ 50.000,00",
+            "cargo": "REPRESENTANTE LEGAL",
         },
         {
-            "nome": "Maria Helena Souza",
+            "nome": "André Luiz Barbosa Machado",
             "cpf": "123.456.789-00",
-            "participacao": "R$ 250.000,00",
-            "cargo": "Sócia",
+            "participacao": "R$ 50.000,00",
+            "cargo": "REPRESENTANTE LEGAL",
         },
     ],
-    "contador_nome": "Siler Rodrigues",
-    "contador_crc": "GO-012345/O-1",
-    "contador_cpf": "987.654.321-00",
+    "contador_nome": "João Alberto Mesquita de Mendonça",
+    "contador_crc": "PE022841/O-3",
+    "contador_cpf": "034.826.484-41",
 }
 
 CONFIG = {"ano": 2025, "data_aprovacao": "20 de julho de 2026"}
 
+# Títulos das 20 notas do modelo de referência, na ordem.
+TITULOS_REFERENCIA = [
+    "Contexto operacional",
+    "Apresentação das Demonstrações Contábeis",
+    "Sumário das principais práticas contábeis",
+    "Caixa e equivalentes de Caixa",
+    "Contas a receber de clientes",
+    "Créditos",
+    "Realizável a Longo Prazo",
+    "Imobilizado",
+    "Fornecedores",
+    "Empréstimos e Financiamentos",
+    "Obrigações Trabalhistas",
+    "Obrigações Fiscais",
+    "Adiantamento de Clientes",
+    "Outras Obrigações",
+    "Provisões",
+    "Capital Social",
+    "Receita Operacional Líquida",
+    "Informações sobre a Natureza das Despesas e Custos",
+    "Resultado Financeiro",
+    "Aprovação das Demonstrações Financeiras",
+]
+
+
+def _exercicio(ano: int, balanco_texto: str, dre_texto: str) -> dict:
+    parser = PdfParserService()
+    return {
+        "ano": ano,
+        "balanco": parser.parse_balanco_text(balanco_texto),
+        "dre": parser.parse_dre_text(dre_texto),
+    }
+
 
 @pytest.fixture
 def notas():
-    parser = PdfParserService()
-    balanco = parser.parse_balanco_text(BALANCO_TEXTO)
-    dre = parser.parse_dre_text(DRE_TEXTO)
-    return NotasBuilderService().build_all(balanco, dre, EMPRESA, CONFIG)
+    return NotasBuilderService().build_all(
+        [_exercicio(2025, BALANCO_TEXTO, DRE_TEXTO)], EMPRESA, CONFIG
+    )
+
+
+@pytest.fixture
+def notas_comparativas():
+    return NotasBuilderService().build_all(
+        [
+            _exercicio(2025, BALANCO_TEXTO, DRE_TEXTO),
+            _exercicio(2024, BALANCO_TEXTO, DRE_TEXTO),
+            _exercicio(2023, BALANCO_TEXTO, DRE_TEXTO),
+        ],
+        EMPRESA,
+        CONFIG,
+    )
+
+
+def _tabela(nota) -> Tabela:
+    return next(b for b in nota.conteudo if isinstance(b, Tabela))
+
+
+def _por_titulo(notas, titulo):
+    return next(n for n in notas if n.titulo == titulo)
 
 
 def test_formatar_brl() -> None:
     assert formatar_brl(1566336.51) == "1.566.336,51"
     assert formatar_brl(-800967.11) == "-800.967,11"
     assert formatar_brl(0) == "0,00"
-    assert formatar_brl(None) == "-"
+    assert formatar_brl(None) == "0,00"
 
 
-def test_build_all_gera_vinte_notas(notas) -> None:
-    assert len(notas) == 20
-    assert [n.numero for n in notas] == list(range(1, 21))
+def test_ordem_das_notas_segue_o_modelo(notas) -> None:
+    titulos = [n.titulo for n in notas]
+    # As notas presentes devem aparecer na mesma ordem relativa do modelo.
+    posicoes = [TITULOS_REFERENCIA.index(t) for t in titulos]
+    assert posicoes == sorted(posicoes)
+    assert [n.numero for n in notas] == list(range(1, len(notas) + 1))
+
+
+def test_notas_do_modelo_ausentes_no_builder() -> None:
+    """Todo título gerado precisa existir no modelo de referência."""
+    notas = NotasBuilderService().build_all(
+        [_exercicio(2025, BALANCO_TEXTO, DRE_TEXTO)], EMPRESA, CONFIG
+    )
+    for nota in notas:
+        assert nota.titulo in TITULOS_REFERENCIA
 
 
 def test_placeholders_resolvidos(notas) -> None:
     texto = notas[0].conteudo[0].texto
-    assert "Soberana Serviços Ltda." in texto
-    assert "12.345.678/0001-90" in texto
+    assert "Soberana Faculdade de Saúde de Petrolina LTDA" in texto
+    assert "19.265.047/0001-05" in texto
     assert "{empresa.nome}" not in texto
 
-    aprovacao = " ".join(b.texto for b in notas[19].conteudo)
+    aprovacao = " ".join(
+        b.texto for b in _por_titulo(notas, TITULOS_REFERENCIA[19]).conteudo
+    )
     assert "20 de julho de 2026" in aprovacao
-    assert "2025" in aprovacao
 
 
-def test_nota_caixa_traz_itens_e_total(notas) -> None:
-    caixa = next(n for n in notas if n.titulo == "Caixa e Equivalentes de Caixa")
-    tabela = next(b for b in caixa.conteudo if isinstance(b, Tabela))
+def test_nota_caixa_lista_apenas_primeiro_nivel(notas) -> None:
+    tabela = _tabela(_por_titulo(notas, "Caixa e equivalentes de Caixa"))
 
     assert tabela.colunas == ["Descrição", "2025"]
-    assert len(tabela.linhas) == 3
     assert tabela.total == ["Total", "315.540,60"]
+    soma = sum(float(l[1].replace(".", "").replace(",", ".")) for l in tabela.linhas)
+    assert soma == pytest.approx(315540.60)
 
 
-def test_nota_imobilizado_tem_quatro_colunas(notas) -> None:
-    imob = next(n for n in notas if n.titulo == "Imobilizado")
-    tabela = next(b for b in imob.conteudo if isinstance(b, Tabela))
+def test_tabelas_comparativas_tres_exercicios(notas_comparativas) -> None:
+    tabela = _tabela(_por_titulo(notas_comparativas, "Caixa e equivalentes de Caixa"))
+
+    assert tabela.colunas == ["Descrição", "2025", "2024", "2023"]
+    assert tabela.total == ["Total", "315.540,60", "315.540,60", "315.540,60"]
+    for linha in tabela.linhas:
+        assert len(linha) == 4
+
+
+def test_nota_imobilizado_e_tabela_de_movimentacao(notas_comparativas) -> None:
+    tabela = _tabela(_por_titulo(notas_comparativas, "Imobilizado"))
 
     assert tabela.colunas == [
-        "Descrição",
-        "Custo",
-        "Depreciação Acumulada",
-        "Valor Líquido",
+        "Imobilizado/Intangível",
+        "Saldo 2024",
+        "Aquisições",
+        "Baixas",
+        "Depreciação",
+        "Saldo 2025",
     ]
-    assert tabela.total == ["Total", "870.000,00", "-189.204,09", "680.795,91"]
+    assert tabela.total[0] == "Total Imobilizado"
+    assert any(l[0] == "(-) Depreciação Acumulada" for l in tabela.linhas)
 
 
 def test_notas_de_passivo_usam_valores_positivos(notas) -> None:
-    fornecedores = next(n for n in notas if n.titulo == "Fornecedores")
-    tabela = next(b for b in fornecedores.conteudo if isinstance(b, Tabela))
+    tabela = _tabela(_por_titulo(notas, "Fornecedores"))
     assert tabela.total == ["Total", "300.000,00"]
 
 
-def test_nota_capital_social_lista_socios(notas) -> None:
-    capital = next(n for n in notas if n.titulo == "Capital Social")
-    tabela = next(b for b in capital.conteudo if isinstance(b, Tabela))
+def test_nota_capital_social_sem_cpf_no_quadro(notas) -> None:
+    """O modelo traz apenas nome e participação no quadro societário."""
+    tabela = _tabela(_por_titulo(notas, "Capital Social"))
 
-    assert tabela.colunas == ["Sócio", "CPF", "Participação"]
-    assert tabela.linhas[0][0] == "Albert Mario da Silva"
-    assert tabela.total == ["Total", "", "500.000,00"]
+    assert tabela.colunas == ["Sócio", "Participação"]
+    assert tabela.linhas[0][0] == EMPRESA["socios"][0]["nome"]
+    assert tabela.total == ["Total", "R$ 500.000,00"]
+
+
+def test_nota_natureza_despesas_e_matriz(notas) -> None:
+    tabela = _tabela(_por_titulo(notas, "Informações sobre a Natureza das Despesas e Custos"))
+
+    assert tabela.colunas == [
+        "Natureza dos Custos e Despesas",
+        "Custos",
+        "Despesas Gerais e Administrativas",
+        "Total",
+    ]
+    assert [l[0] for l in tabela.linhas] == [
+        "Custo do Serviço Prestado",
+        "Serviços de Terceiros",
+        "Depreciações",
+        "Outros Custos e Despesas",
+    ]
+
+
+def test_nota_resultado_financeiro(notas) -> None:
+    tabela = _tabela(_por_titulo(notas, "Resultado Financeiro"))
+    assert [l[0] for l in tabela.linhas] == [
+        "Receitas Financeiras",
+        "Outras Despesas Financeiras",
+    ]
 
 
 def test_notas_sem_dados_sao_omitidas() -> None:
-    """Balanço e DRE vazios deixam apenas as notas puramente textuais."""
-    builder = NotasBuilderService()
-    notas = builder.build_all({}, {}, EMPRESA, CONFIG)
-
+    notas = NotasBuilderService().build_all(
+        [{"ano": 2025, "balanco": {}, "dre": {}}], EMPRESA, CONFIG
+    )
     titulos = [n.titulo for n in notas]
-    assert "Caixa e Equivalentes de Caixa" not in titulos
+
+    assert "Caixa e equivalentes de Caixa" not in titulos
     assert "Imobilizado" not in titulos
-    assert "Contexto Operacional" in titulos
+    assert "Contexto operacional" in titulos
     assert [n.numero for n in notas] == list(range(1, len(notas) + 1))
 
 
-def test_intangivel_omitido_quando_zerado() -> None:
-    parser = PdfParserService()
-    texto = BALANCO_TEXTO.replace("20.000,00D", "0,00D")
-    balanco = parser.parse_balanco_text(texto)
-    dre = parser.parse_dre_text(DRE_TEXTO)
-
-    notas = NotasBuilderService().build_all(balanco, dre, EMPRESA, CONFIG)
-    assert "Intangível" not in [n.titulo for n in notas]
+def test_sem_exercicios_nao_lanca() -> None:
+    notas = NotasBuilderService().build_all([], EMPRESA, CONFIG)
+    assert [n.titulo for n in notas] == [
+        "Contexto operacional",
+        "Apresentação das Demonstrações Contábeis",
+        "Sumário das principais práticas contábeis",
+        "Aprovação das Demonstrações Financeiras",
+    ]

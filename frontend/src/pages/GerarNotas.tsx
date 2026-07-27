@@ -128,12 +128,27 @@ export function GerarNotas() {
       return
     }
 
+    const incompleto = store.anteriores.findIndex(
+      (a) => Boolean(a.balancoPdf) !== Boolean(a.drePdf),
+    )
+    if (incompleto >= 0) {
+      notificar('Exercício anterior incompleto', {
+        descricao: `Envie o Balanço e a DRE de ${store.ano - incompleto - 1}, ou nenhum dos dois.`,
+        variante: 'erro',
+      })
+      return
+    }
+
     processar.mutate({
       balancoPdf: store.balancoPdf,
       drePdf: store.drePdf,
       empresaId: store.empresaId,
       ano: store.ano,
       dataAprovacao: store.dataAprovacao,
+      anteriores: [
+        { ...store.anteriores[0] },
+        { ...store.anteriores[1] },
+      ],
     })
   }
 
@@ -205,6 +220,56 @@ export function GerarNotas() {
               }
             />
           </div>
+
+          <details className="rounded-lg border border-neutral-200 bg-white p-5">
+            <summary className="cursor-pointer text-sm font-semibold text-neutral-900">
+              Exercícios anteriores (opcional) — para as tabelas comparativas
+            </summary>
+            <p className="mt-2 text-sm text-neutral-600">
+              O modelo das Notas Explicativas apresenta até três exercícios lado a lado.
+              Envie o Balanço e a DRE de cada ano anterior que deva aparecer no
+              comparativo. Anos não enviados aparecem zerados e podem ser corrigidos na
+              revisão.
+            </p>
+
+            {([0, 1] as const).map((indice) => (
+              <div key={indice} className="mt-4">
+                <p className="mb-2 text-sm font-medium text-neutral-800">
+                  Exercício de {store.ano - indice - 1}
+                </p>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  <UploadZone
+                    titulo={`Balanço Patrimonial ${store.ano - indice - 1}`}
+                    descricao="Arquivo .pdf de até 50 MB"
+                    arquivo={store.anteriores[indice].balancoPdf}
+                    onArquivoSelecionado={(arquivo) =>
+                      store.setAnterior(indice, 'balancoPdf', arquivo)
+                    }
+                    onErro={(mensagem) =>
+                      notificar('Arquivo inválido', {
+                        descricao: mensagem,
+                        variante: 'erro',
+                      })
+                    }
+                  />
+                  <UploadZone
+                    titulo={`DRE ${store.ano - indice - 1}`}
+                    descricao="Arquivo .pdf de até 50 MB"
+                    arquivo={store.anteriores[indice].drePdf}
+                    onArquivoSelecionado={(arquivo) =>
+                      store.setAnterior(indice, 'drePdf', arquivo)
+                    }
+                    onErro={(mensagem) =>
+                      notificar('Arquivo inválido', {
+                        descricao: mensagem,
+                        variante: 'erro',
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            ))}
+          </details>
 
           <div className="grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-3">
             <div>

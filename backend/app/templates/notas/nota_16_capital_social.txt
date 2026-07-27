@@ -1,0 +1,1 @@
+O capital social totalmente integralizado da {empresa.nome}, no valor de R$ {capital}, é formado por quotas de valor nominal unitário de R$ 1,00 em 31 de dezembro de {config.ano}. A participação societária está assim definida:

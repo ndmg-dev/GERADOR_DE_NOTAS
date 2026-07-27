@@ -71,8 +71,11 @@ que também faz o proxy de `/api/*` para o backend e aplica rate limiting.
    dados do contador. Envie as imagens PNG do **header** e do **footer** do papel timbrado.
 2. **Gerar Notas** — fluxo de 3 passos:
    - **Passo 1:** envie o PDF do Balanço e o da DRE, escolha a empresa, o ano do exercício e a
-     data de aprovação (ex.: `20 de julho de 2026`).
-   - **Passo 2:** revise os valores extraídos e corrija o que for necessário.
+     data de aprovação (ex.: `20 de julho de 2026`). Opcionalmente, envie também o Balanço e a
+     DRE de até dois exercícios anteriores — as tabelas das notas ficam comparativas, no padrão
+     do documento de referência.
+   - **Passo 2:** revise os valores extraídos (um exercício por vez) e corrija o que for
+     necessário.
    - **Passo 3:** baixe o `.docx` gerado.
 3. **Histórico** — consulte todas as gerações, com filtro por empresa e ano, e rebaixe os
    arquivos ainda dentro do prazo de retenção.
@@ -96,6 +99,32 @@ que também faz o proxy de `/api/*` para o backend e aplica rate limiting.
 ├── nginx/nginx.conf    Proxy reverso (produção)
 └── specs/              Especificação técnica
 ```
+
+### As 20 notas
+
+A estrutura segue o documento de referência da Soberana:
+
+| # | Nota | # | Nota |
+|---|---|---|---|
+| 01 | Contexto operacional | 11 | Obrigações Trabalhistas |
+| 02 | Apresentação das Demonstrações Contábeis | 12 | Obrigações Fiscais |
+| 03 | Sumário das principais práticas contábeis | 13 | Adiantamento de Clientes |
+| 04 | Caixa e equivalentes de Caixa | 14 | Outras Obrigações |
+| 05 | Contas a receber de clientes | 15 | Provisões |
+| 06 | Créditos | 16 | Capital Social |
+| 07 | Realizável a Longo Prazo | 17 | Receita Operacional Líquida |
+| 08 | Imobilizado | 18 | Natureza das Despesas e Custos |
+| 09 | Fornecedores | 19 | Resultado Financeiro |
+| 10 | Empréstimos e Financiamentos | 20 | Aprovação das Demonstrações Financeiras |
+
+Notas cujos grupos não existem no balanço são omitidas automaticamente, e as demais são
+renumeradas em sequência.
+
+> **Nota 08 (Imobilizado):** o modelo usa uma tabela de movimentação
+> (`saldo anterior · aquisições · baixas · depreciação · saldo atual`). O saldo anterior é
+> derivado do balanço do exercício precedente, quando enviado; **aquisições, baixas e a
+> depreciação do período não constam do balanço** e saem zeradas, para o contador preencher
+> no passo de revisão.
 
 ### Textos das notas
 

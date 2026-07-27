@@ -1,0 +1,3 @@
+Referem-se a valores recebidos de clientes antecipadamente, cujos serviços correspondentes ainda não foram prestados na data do balanço, e que serão apropriados ao resultado à medida da prestação dos serviços.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, conforme demonstrado a seguir:

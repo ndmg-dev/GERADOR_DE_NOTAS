@@ -78,6 +78,9 @@ def _normalizar(texto: str) -> str:
     return re.sub(r"\s+", " ", sem_acento).strip()
 
 
+TOLERANCIA = 0.005  # diferença aceitável ao comparar somas de centavos
+
+
 @dataclass
 class ContaLinha:
     """Uma linha de conta extraída do relatório."""
@@ -109,23 +112,41 @@ LABELS_BALANCO: dict[str, tuple[str, ...]] = {
     ),
     "clientes": ("CLIENTES", "CONTAS A RECEBER", "DUPLICATAS A RECEBER"),
     "outros_creditos": ("OUTROS CREDITOS", "OUTROS CREDITOS A RECEBER"),
+    "cartao_corporativo": (
+        "CARTAO CORPORATIVO DE COLABORADORES",
+        "CARTAO CORPORATIVO",
+    ),
     "estoques": ("ESTOQUES",),
     "realizavel_lp": ("REALIZAVEL A LONGO PRAZO", "ATIVO REALIZAVEL A LONGO PRAZO"),
     "imobilizado": ("IMOBILIZADO", "ATIVO IMOBILIZADO"),
     "intangivel": ("INTANGIVEL", "ATIVO INTANGIVEL"),
     "fornecedores": ("FORNECEDORES", "FORNECEDORES NACIONAIS"),
-    "obrigacoes_tributarias": (
+    "obrigacoes_fiscais": (
         "OBRIGACOES TRIBUTARIAS",
         "OBRIGACOES FISCAIS",
         "IMPOSTOS E CONTRIBUICOES A RECOLHER",
     ),
+    "parcelamentos": ("PARCELAMENTOS", "PARCELAMENTO"),
+    # O relatório do Domínio usa o singular "TRABALHISTA E PREVIDENCIARIA".
     "obrigacoes_trabalhistas": (
+        "OBRIGACOES TRABALHISTA E PREVIDENCIARIA",
+        "OBRIGACOES TRABALHISTAS E PREVIDENCIARIAS",
         "OBRIGACOES TRABALHISTAS",
         "OBRIGACOES SOCIAIS E TRABALHISTAS",
         "OBRIGACOES COM PESSOAL",
     ),
+    "adiantamento_clientes": (
+        "ADIANTAMENTO DE CLIENTES",
+        "ADIANTAMENTOS DE CLIENTES",
+        "ADIANTAMENTO DE CLIENTE",
+    ),
+    "provisoes": ("PROVISOES", "PROVISAO"),
     "outras_obrigacoes": ("OUTRAS OBRIGACOES", "OUTRAS CONTAS A PAGAR"),
-    "emprestimos": ("EMPRESTIMOS E FINANCIAMENTOS", "FINANCIAMENTOS"),
+    "emprestimos": (
+        "EMPRESTIMOS E FINANCIAMENTOS",
+        "EMPRESTIMOS DIVERSOS",
+        "FINANCIAMENTOS",
+    ),
     "capital_social": ("CAPITAL SOCIAL", "CAPITAL SOCIAL REALIZADO"),
     "reservas": ("RESERVAS DE LUCROS", "RESERVAS", "LUCROS OU PREJUIZOS ACUMULADOS"),
     "ajustes": ("AJUSTES DE AVALIACAO PATRIMONIAL", "AJUSTES DE EXERCICIOS ANTERIORES"),
@@ -165,19 +186,30 @@ LABELS_DRE: dict[str, tuple[str, ...]] = {
         "DESPESAS OPERACIONAIS",
         "DESPESAS OPERACIONAIS ADMINISTRATIVAS",
     ),
+    "despesas_administrativas": (
+        "DESPESAS ADMINISTRATIVAS OP",
+        "DESPESAS ADMINISTRATIVAS",
+    ),
     "despesas_pessoal": ("DESPESAS COM PESSOAL", "DESPESAS DE PESSOAL"),
     "impostos_taxas": (
         "IMPOSTOS TAXAS E CONTRIBUICOES",
         "IMPOSTOS E TAXAS",
         "DESPESAS TRIBUTARIAS",
     ),
-    "despesas_gerais": ("DESPESAS GERAIS", "DESPESAS ADMINISTRATIVAS", "DESPESAS GERAIS E ADMINISTRATIVAS"),
+    "despesas_gerais": ("DESPESAS GERAIS", "DESPESAS GERAIS E ADMINISTRATIVAS"),
+    "depreciacoes": ("DEPRECIACOES", "DEPRECIACAO E AMORTIZACAO"),
+    "servicos_terceiros": ("SERVICOS DE TERCEIROS", "SERVICOS PRESTADOS POR TERCEIROS"),
     "receitas_financeiras": ("RECEITAS FINANCEIRAS",),
-    "despesas_financeiras": ("DESPESAS FINANCEIRAS",),
+    "despesas_financeiras": ("DESPESAS FINANCEIRAS", "OUTRAS DESPESAS FINANCEIRAS"),
+    "resultado_financeiro": ("RESULTADO FINANCEIRO OP", "RESULTADO FINANCEIRO"),
     "outras_receitas": (
-        "OUTRAS RECEITAS",
         "OUTRAS RECEITAS OPERACIONAIS",
+        "OUTRAS RECEITAS",
         "OUTRAS RECEITAS E DESPESAS",
+    ),
+    "resultado_outras": (
+        "RESULTADO OUTRAS DESPESAS RECEITAS OP",
+        "RESULTADO OUTRAS DESPESAS/RECEITAS OP",
     ),
     "resultado_operacional": ("RESULTADO OPERACIONAL", "LUCRO OPERACIONAL"),
     "lucro_liquido": (
@@ -331,15 +363,100 @@ class PdfParserService:
                     return linha
         return None
 
-    def _filhos(self, linhas: list[ContaLinha], pai: ContaLinha) -> list[ContaLinha]:
-        """Linhas subordinadas ao pai (indentação maior, até o próximo irmão)."""
-        filhos: list[ContaLinha] = []
+    def _descendentes(
+        self, linhas: list[ContaLinha], pai: ContaLinha
+    ) -> list[ContaLinha]:
+        """Todas as linhas subordinadas ao pai, em qualquer profundidade."""
+        descendentes: list[ContaLinha] = []
         for linha in linhas:
             if linha.ordem <= pai.ordem:
                 continue
             if linha.indent <= pai.indent:
                 break
-            filhos.append(linha)
+            descendentes.append(linha)
+        return descendentes
+
+    def _filhos(self, linhas: list[ContaLinha], pai: ContaLinha) -> list[ContaLinha]:
+        """Apenas os filhos diretos do pai.
+
+        Nos relatórios do Domínio a extração do PDF nem sempre preserva a
+        indentação dos níveis mais profundos: contas sintéticas e analíticas
+        saem na mesma coluna. Quando isso acontece, a hierarquia é
+        reconstruída pela aritmética — uma conta sintética é igual à soma das
+        analíticas que a seguem.
+        """
+        descendentes = self._descendentes(linhas, pai)
+
+        # Subgrupo cujas analíticas saíram no mesmo recuo que ele: procura,
+        # entre as linhas seguintes de mesmo nível, as que somam o seu valor.
+        if not descendentes:
+            return self._analiticas_no_mesmo_nivel(linhas, pai)
+
+        menor_indent = min(linha.indent for linha in descendentes)
+        candidatos = [l for l in descendentes if l.indent == menor_indent]
+
+        # A indentação ainda separa os níveis: os candidatos já são os filhos.
+        if len(candidatos) < len(descendentes):
+            return candidatos
+
+        return self._agrupar_por_soma(candidatos)
+
+    def _analiticas_no_mesmo_nivel(
+        self, linhas: list[ContaLinha], pai: ContaLinha
+    ) -> list[ContaLinha]:
+        """Linhas seguintes, de mesmo recuo, que somam exatamente o valor do pai."""
+        seguintes = [
+            l for l in linhas if l.ordem > pai.ordem and l.indent == pai.indent
+        ]
+        if not seguintes:
+            return []
+
+        soma = 0.0
+        candidatas: list[ContaLinha] = []
+        for linha in seguintes:
+            soma += linha.valor
+            candidatas.append(linha)
+            if abs(soma - pai.valor) <= TOLERANCIA:
+                return self._agrupar_por_soma(candidatas)
+            if abs(soma) > abs(pai.valor) + TOLERANCIA:
+                break
+        return []
+
+    @staticmethod
+    def _agrupar_por_soma(linhas: list[ContaLinha]) -> list[ContaLinha]:
+        """Filtra, de uma lista achatada, as contas de primeiro nível.
+
+        Percorre as linhas em ordem: se as linhas seguintes somam exatamente o
+        valor da linha atual, elas são suas analíticas e são descartadas deste
+        nível.
+        """
+        filhos: list[ContaLinha] = []
+        indice = 0
+
+        while indice < len(linhas):
+            atual = linhas[indice]
+            filhos.append(atual)
+
+            soma = 0.0
+            consumidos = 0
+            seguinte = indice + 1
+
+            while seguinte < len(linhas):
+                soma += linhas[seguinte].valor
+                consumidos += 1
+                seguinte += 1
+                if abs(soma - atual.valor) <= TOLERANCIA:
+                    break
+                # A soma ultrapassou o pai (em módulo): não são suas analíticas.
+                if abs(soma) > abs(atual.valor) + TOLERANCIA:
+                    consumidos = 0
+                    break
+
+            if consumidos and abs(soma - atual.valor) <= TOLERANCIA:
+                indice += 1 + consumidos
+            else:
+                indice += 1
+
         return filhos
 
     def _grupo(
@@ -413,6 +530,12 @@ class PdfParserService:
             "outros_creditos": self._grupo(
                 linhas, LABELS_BALANCO["outros_creditos"], inicio=i_ac or 0, fim=fim_ac
             ),
+            "cartao_corporativo": self._grupo(
+                linhas,
+                LABELS_BALANCO["cartao_corporativo"],
+                inicio=i_ac or 0,
+                fim=fim_ac,
+            ),
             "total": self._valor(
                 linhas, (SECTION_MARKERS["ativo_circulante"],), inicio=i_ac or 0
             ),
@@ -442,13 +565,23 @@ class PdfParserService:
             "fornecedores": self._grupo(
                 linhas, LABELS_BALANCO["fornecedores"], inicio=i_pc or 0, fim=fim_pc
             ),
-            "obrigacoes_tributarias": self._grupo(
-                linhas, LABELS_BALANCO["obrigacoes_tributarias"],
+            "obrigacoes_fiscais": self._grupo(
+                linhas, LABELS_BALANCO["obrigacoes_fiscais"],
                 inicio=i_pc or 0, fim=fim_pc,
+            ),
+            "parcelamentos": self._grupo(
+                linhas, LABELS_BALANCO["parcelamentos"], inicio=i_pc or 0, fim=fim_pc
             ),
             "obrigacoes_trabalhistas": self._grupo(
                 linhas, LABELS_BALANCO["obrigacoes_trabalhistas"],
                 inicio=i_pc or 0, fim=fim_pc,
+            ),
+            "adiantamento_clientes": self._grupo(
+                linhas, LABELS_BALANCO["adiantamento_clientes"],
+                inicio=i_pc or 0, fim=fim_pc,
+            ),
+            "provisoes": self._grupo(
+                linhas, LABELS_BALANCO["provisoes"], inicio=i_pc or 0, fim=fim_pc
             ),
             "outras_obrigacoes": self._grupo(
                 linhas, LABELS_BALANCO["outras_obrigacoes"],
@@ -577,8 +710,13 @@ class PdfParserService:
 
         receitas_financeiras = v("receitas_financeiras")
         despesas_financeiras = v("despesas_financeiras")
-        liquido_financeiro: float | None = None
-        if receitas_financeiras is not None or despesas_financeiras is not None:
+
+        # A DRE do Domínio já traz o resultado financeiro apurado; só calculamos
+        # quando essa linha não existe no relatório.
+        liquido_financeiro = v("resultado_financeiro")
+        if liquido_financeiro is None and (
+            receitas_financeiras is not None or despesas_financeiras is not None
+        ):
             liquido_financeiro = round(
                 (receitas_financeiras or 0.0) - abs(despesas_financeiras or 0.0), 2
             )
@@ -596,9 +734,12 @@ class PdfParserService:
             "lucro_bruto": v("lucro_bruto"),
             "despesas_operacionais": {
                 "total": v("despesas_operacionais"),
+                "despesas_administrativas": v("despesas_administrativas"),
                 "despesas_pessoal": v("despesas_pessoal"),
                 "impostos_taxas": v("impostos_taxas"),
                 "despesas_gerais": v("despesas_gerais"),
+                "depreciacoes": v("depreciacoes"),
+                "servicos_terceiros": v("servicos_terceiros"),
                 "itens": despesas_grupo["itens"] if despesas_grupo else [],
             },
             "resultado_financeiro": {

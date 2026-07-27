@@ -1,1 +1,0 @@
-O capital social da {empresa.nome}, totalmente subscrito e integralizado em moeda corrente nacional, é de R$ {capital}, dividido em quotas de valor nominal unitário, distribuídas entre os sócios conforme o quadro societário demonstrado a seguir:

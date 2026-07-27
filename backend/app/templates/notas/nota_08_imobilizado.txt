@@ -1,3 +1,3 @@
-O ativo imobilizado está registrado pelo custo de aquisição, deduzido da respectiva depreciação acumulada. A depreciação é calculada pelo método linear, com base em taxas que contemplam a vida útil econômica estimada dos bens e observam os limites admitidos pela legislação fiscal vigente.
+As baixas do imobilizado são realizadas pelo valor de aquisição, aplicação ou incorporação. Os bens são depreciados levando em consideração as taxas determinadas pela IN SRF nº 162/98, parcialmente alterada pela IN SRF nº 1.700/2017, as quais fixam os prazos de vida útil do bem.
 
-A depreciação acumulada em 31 de dezembro de {config.ano} montava R$ {depreciacao}, resultando em valor líquido contábil de R$ {total}. A composição do grupo é a seguinte:
+Em 31 de dezembro de {config.ano}, a depreciação acumulada montava R$ {depreciacao}, resultando em valor contábil líquido de R$ {total}.
