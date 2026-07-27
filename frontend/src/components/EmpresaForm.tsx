@@ -21,8 +21,7 @@ function valoresIniciais(empresa?: Empresa | null): EmpresaPayload {
   }
 }
 
-const campoClasse =
-  'w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none'
+const campoClasse = 'campo'
 
 export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFormProps) {
   const {
@@ -38,7 +37,7 @@ export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFo
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="mb-1 block text-sm font-medium text-neutral-800">
+          <label className="rotulo">
             Razão social *
           </label>
           <input
@@ -46,12 +45,12 @@ export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFo
             className={campoClasse}
           />
           {errors.nome && (
-            <p className="mt-1 text-xs text-red-600">{errors.nome.message}</p>
+            <p className="mt-1 text-xs text-erro">{errors.nome.message}</p>
           )}
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-neutral-800">CNPJ *</label>
+          <label className="rotulo">CNPJ *</label>
           <input
             {...register('cnpj', {
               required: 'Informe o CNPJ',
@@ -64,36 +63,36 @@ export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFo
             className={campoClasse}
           />
           {errors.cnpj && (
-            <p className="mt-1 text-xs text-red-600">{errors.cnpj.message}</p>
+            <p className="mt-1 text-xs text-erro">{errors.cnpj.message}</p>
           )}
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-medium text-neutral-800">Endereço</label>
+          <label className="rotulo">Endereço</label>
           <input {...register('endereco')} className={campoClasse} />
         </div>
       </div>
 
-      <fieldset className="rounded-lg border border-neutral-200 p-4">
-        <legend className="px-1 text-sm font-semibold text-neutral-900">Contador</legend>
+      <fieldset className="rounded-lg border border-borda p-4">
+        <legend className="px-1 text-sm font-semibold text-texto">Contador</legend>
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
-            <label className="mb-1 block text-sm text-neutral-700">Nome</label>
+            <label className="rotulo">Nome</label>
             <input {...register('contador_nome')} className={campoClasse} />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-neutral-700">CRC</label>
+            <label className="rotulo">CRC</label>
             <input {...register('contador_crc')} className={campoClasse} />
           </div>
           <div>
-            <label className="mb-1 block text-sm text-neutral-700">CPF</label>
+            <label className="rotulo">CPF</label>
             <input {...register('contador_cpf')} className={campoClasse} />
           </div>
         </div>
       </fieldset>
 
-      <fieldset className="rounded-lg border border-neutral-200 p-4">
-        <legend className="px-1 text-sm font-semibold text-neutral-900">
+      <fieldset className="rounded-lg border border-borda p-4">
+        <legend className="px-1 text-sm font-semibold text-texto">
           Quadro societário
         </legend>
 
@@ -124,7 +123,7 @@ export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFo
                 type="button"
                 onClick={() => remove(indice)}
                 aria-label="Remover sócio"
-                className="rounded border border-neutral-300 px-2 text-neutral-500 hover:bg-neutral-100 hover:text-red-600"
+                className="rounded border border-borda px-2 text-texto-fraco transition-colors hover:border-erro/40 hover:text-erro"
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -136,7 +135,7 @@ export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFo
             onClick={() =>
               append({ nome: '', cpf: '', participacao: '', cargo: 'Sócio Administrador' })
             }
-            className="inline-flex items-center gap-2 rounded border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-100"
+            className="btn-neutro px-3 py-1.5"
           >
             <Plus className="h-4 w-4" /> Adicionar sócio
           </button>
@@ -147,14 +146,14 @@ export function EmpresaForm({ empresa, onSubmit, onCancel, salvando }: EmpresaFo
         <button
           type="button"
           onClick={onCancel}
-          className="rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
+          className="btn-neutro"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={salvando}
-          className="rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+          className="btn-ouro"
         >
           {salvando ? 'Salvando...' : 'Salvar'}
         </button>

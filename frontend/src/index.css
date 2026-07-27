@@ -4,6 +4,60 @@
 
 @layer base {
   body {
-    @apply bg-neutral-50 text-neutral-900 antialiased;
+    @apply bg-fundo text-texto antialiased;
+    /* Brilho dourado sutil no topo, como na identidade do painel fiscal. */
+    background-image: radial-gradient(
+      70rem 28rem at 50% -8rem,
+      rgba(201, 169, 97, 0.1),
+      transparent 70%
+    );
+    background-attachment: fixed;
+  }
+
+  /* As opções nativas do select herdam o fundo do sistema; força o tema escuro. */
+  option {
+    @apply bg-superficie-alt text-texto;
+  }
+
+  ::selection {
+    @apply bg-ouro/30 text-texto;
+  }
+}
+
+@layer components {
+  .cartao {
+    @apply rounded-lg border border-borda bg-superficie shadow-cartao;
+  }
+
+  /* Cartão em destaque, com a borda dourada. */
+  .cartao-destaque {
+    @apply rounded-lg border border-ouro/40 bg-superficie shadow-cartao;
+  }
+
+  .btn-ouro {
+    @apply inline-flex items-center justify-center gap-2 rounded-md bg-ouro px-4 py-2
+           text-sm font-semibold text-fundo-alt transition-colors
+           hover:bg-ouro-claro disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .btn-neutro {
+    @apply inline-flex items-center justify-center gap-2 rounded-md border border-borda
+           px-4 py-2 text-sm text-texto-suave transition-colors
+           hover:border-borda-clara hover:text-texto
+           disabled:cursor-not-allowed disabled:opacity-40;
+  }
+
+  .campo {
+    @apply w-full rounded-md border border-borda bg-fundo-alt px-3 py-2 text-sm text-texto
+           placeholder:text-texto-fraco focus:border-ouro focus:outline-none;
+  }
+
+  .rotulo {
+    @apply mb-1 block text-sm font-medium text-texto-suave;
+  }
+
+  /* Rótulo pequeno em caixa alta, usado nos cartões e cabeçalhos de tabela. */
+  .rotulo-mini {
+    @apply text-xs uppercase tracking-wider text-texto-fraco;
   }
 }

@@ -102,8 +102,8 @@ export function Empresas() {
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-neutral-900">Empresas</h1>
-          <p className="mt-1 text-sm text-neutral-600">
+          <h1 className="text-2xl font-semibold text-texto">Empresas</h1>
+          <p className="mt-1 text-sm text-texto-suave">
             Cadastro de clientes, quadro societário e papel timbrado.
           </p>
         </div>
@@ -113,21 +113,21 @@ export function Empresas() {
             setEmEdicao(null)
             setDialogoAberto(true)
           }}
-          className="inline-flex items-center gap-2 rounded bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+          className="btn-ouro"
         >
           <Plus className="h-4 w-4" /> Nova empresa
         </button>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+      <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
         {empresas.isLoading ? (
-          <p className="p-6 text-sm text-neutral-500">Carregando...</p>
+          <p className="p-6 text-sm text-texto-fraco">Carregando...</p>
         ) : (empresas.data ?? []).length === 0 ? (
-          <p className="p-6 text-sm text-neutral-500">Nenhuma empresa cadastrada.</p>
+          <p className="p-6 text-sm text-texto-fraco">Nenhuma empresa cadastrada.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500">
+              <tr className="border-b border-borda text-left text-xs uppercase tracking-wide text-texto-fraco">
                 <th className="px-4 py-3 font-medium">Razão social</th>
                 <th className="px-4 py-3 font-medium">CNPJ</th>
                 <th className="px-4 py-3 font-medium">Sócios</th>
@@ -137,10 +137,10 @@ export function Empresas() {
             </thead>
             <tbody>
               {(empresas.data ?? []).map((empresa) => (
-                <tr key={empresa.id} className="border-b border-neutral-100 last:border-0">
-                  <td className="px-4 py-3 text-neutral-900">{empresa.nome}</td>
-                  <td className="px-4 py-3 tabular-nums text-neutral-700">{empresa.cnpj}</td>
-                  <td className="px-4 py-3 text-neutral-700">{empresa.socios.length}</td>
+                <tr key={empresa.id} className="border-b border-borda/60 last:border-0">
+                  <td className="px-4 py-3 text-texto">{empresa.nome}</td>
+                  <td className="px-4 py-3 tabular-nums text-texto-suave">{empresa.cnpj}</td>
+                  <td className="px-4 py-3 text-texto-suave">{empresa.socios.length}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <button
@@ -148,9 +148,9 @@ export function Empresas() {
                         onClick={() => selecionarTimbrado(empresa.id, 'header')}
                         className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs ${
                           empresa.timbrado_header_path
-                            ? 'border-neutral-900 text-neutral-900'
-                            : 'border-neutral-300 text-neutral-500'
-                        } hover:bg-neutral-100`}
+                            ? 'border-ouro/50 bg-ouro-tenue text-ouro'
+                            : 'border-borda text-texto-fraco'
+                        } hover:bg-superficie-alt`}
                       >
                         <Image className="h-3.5 w-3.5" /> Header
                       </button>
@@ -159,9 +159,9 @@ export function Empresas() {
                         onClick={() => selecionarTimbrado(empresa.id, 'footer')}
                         className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs ${
                           empresa.timbrado_footer_path
-                            ? 'border-neutral-900 text-neutral-900'
-                            : 'border-neutral-300 text-neutral-500'
-                        } hover:bg-neutral-100`}
+                            ? 'border-ouro/50 bg-ouro-tenue text-ouro'
+                            : 'border-borda text-texto-fraco'
+                        } hover:bg-superficie-alt`}
                       >
                         <Image className="h-3.5 w-3.5" /> Footer
                       </button>
@@ -176,7 +176,7 @@ export function Empresas() {
                           setDialogoAberto(true)
                         }}
                         aria-label={`Editar ${empresa.nome}`}
-                        className="rounded border border-neutral-300 p-1.5 text-neutral-600 hover:bg-neutral-100"
+                        className="rounded border border-borda p-1.5 text-texto-suave hover:bg-superficie-alt"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
@@ -190,7 +190,7 @@ export function Empresas() {
                           }
                         }}
                         aria-label={`Remover ${empresa.nome}`}
-                        className="rounded border border-neutral-300 p-1.5 text-neutral-600 hover:bg-neutral-100 hover:text-red-600"
+                        className="rounded border border-borda p-1.5 text-texto-suave hover:bg-superficie-alt hover:text-erro"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -205,13 +205,13 @@ export function Empresas() {
 
       <Dialog.Root open={dialogoAberto} onOpenChange={setDialogoAberto}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(48rem,92vw)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg bg-white p-6 shadow-xl">
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(48rem,92vw)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-borda bg-superficie p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <Dialog.Title className="text-lg font-semibold text-neutral-900">
+              <Dialog.Title className="text-lg font-semibold text-texto">
                 {emEdicao ? 'Editar empresa' : 'Nova empresa'}
               </Dialog.Title>
-              <Dialog.Close aria-label="Fechar" className="text-neutral-400 hover:text-neutral-700">
+              <Dialog.Close aria-label="Fechar" className="text-texto-fraco hover:text-texto-suave">
                 <X className="h-5 w-5" />
               </Dialog.Close>
             </div>

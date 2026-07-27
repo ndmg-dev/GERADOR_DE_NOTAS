@@ -45,14 +45,14 @@ export function Historico() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-neutral-900">Histórico</h1>
-      <p className="mb-6 text-sm text-neutral-600">
+      <h1 className="mb-1 text-2xl font-semibold text-texto">Histórico</h1>
+      <p className="mb-6 text-sm text-texto-suave">
         Todas as gerações de Notas Explicativas registradas.
       </p>
 
-      <div className="mb-4 flex flex-wrap gap-3 rounded-lg border border-neutral-200 bg-white p-4">
+      <div className="mb-4 flex flex-wrap gap-3 rounded-lg border border-borda bg-superficie p-4">
         <div>
-          <label htmlFor="filtro-empresa" className="mb-1 block text-xs text-neutral-600">
+          <label htmlFor="filtro-empresa" className="mb-1 block text-xs text-texto-suave">
             Empresa
           </label>
           <select
@@ -62,7 +62,7 @@ export function Historico() {
               setEmpresaId(evento.target.value)
               setPage(1)
             }}
-            className="rounded border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+            className="campo"
           >
             <option value="">Todas</option>
             {(empresas.data ?? []).map((empresa) => (
@@ -74,7 +74,7 @@ export function Historico() {
         </div>
 
         <div>
-          <label htmlFor="filtro-ano" className="mb-1 block text-xs text-neutral-600">
+          <label htmlFor="filtro-ano" className="mb-1 block text-xs text-texto-suave">
             Ano do exercício
           </label>
           <input
@@ -86,12 +86,12 @@ export function Historico() {
               setAno(evento.target.value)
               setPage(1)
             }}
-            className="w-32 rounded border border-neutral-300 px-3 py-2 text-sm tabular-nums focus:border-neutral-900 focus:outline-none"
+            className="w-32 campo"
           />
         </div>
       </div>
 
-      <div className="rounded-lg border border-neutral-200 bg-white">
+      <div className="rounded-lg border border-borda bg-superficie">
         <HistoricoTable
           jobs={historico.data?.items ?? []}
           onDownload={baixar}
@@ -99,7 +99,7 @@ export function Historico() {
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm text-neutral-600">
+      <div className="mt-4 flex items-center justify-between text-sm text-texto-suave">
         <span>
           {total} registro(s) — página {page} de {totalPaginas}
         </span>
@@ -108,7 +108,7 @@ export function Historico() {
             type="button"
             onClick={() => setPage((atual) => Math.max(1, atual - 1))}
             disabled={page <= 1}
-            className="rounded border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 disabled:opacity-40"
+            className="btn-neutro px-3 py-1.5"
           >
             Anterior
           </button>
@@ -116,7 +116,7 @@ export function Historico() {
             type="button"
             onClick={() => setPage((atual) => Math.min(totalPaginas, atual + 1))}
             disabled={page >= totalPaginas}
-            className="rounded border border-neutral-300 px-3 py-1.5 hover:bg-neutral-100 disabled:opacity-40"
+            className="btn-neutro px-3 py-1.5"
           >
             Próxima
           </button>

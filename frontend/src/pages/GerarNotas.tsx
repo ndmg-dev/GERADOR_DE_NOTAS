@@ -31,15 +31,15 @@ function Indicador({ atual }: { atual: Step }) {
           <span
             className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
               atual >= passo.numero
-                ? 'bg-neutral-900 text-white'
-                : 'bg-neutral-200 text-neutral-500'
+                ? 'bg-ouro text-fundo-alt'
+                : 'border border-borda bg-superficie text-texto-fraco'
             }`}
           >
             {passo.numero}
           </span>
           <span
             className={`text-sm ${
-              atual >= passo.numero ? 'text-neutral-900' : 'text-neutral-500'
+              atual >= passo.numero ? 'text-texto' : 'text-texto-fraco'
             }`}
           >
             {passo.rotulo}
@@ -191,8 +191,8 @@ export function GerarNotas() {
 
   return (
     <div>
-      <h1 className="mb-1 text-2xl font-semibold text-neutral-900">Gerar Notas Explicativas</h1>
-      <p className="mb-8 text-sm text-neutral-600">
+      <h1 className="mb-1 text-2xl font-semibold text-texto">Gerar Notas Explicativas</h1>
+      <p className="mb-8 text-sm text-texto-suave">
         Envie o Balanço Patrimonial e a DRE em PDF gerados pelo Domínio.
       </p>
 
@@ -221,11 +221,11 @@ export function GerarNotas() {
             />
           </div>
 
-          <details className="rounded-lg border border-neutral-200 bg-white p-5">
-            <summary className="cursor-pointer text-sm font-semibold text-neutral-900">
+          <details className="rounded-lg border border-borda bg-superficie p-5">
+            <summary className="cursor-pointer text-sm font-semibold text-texto">
               Exercícios anteriores (opcional) — para as tabelas comparativas
             </summary>
-            <p className="mt-2 text-sm text-neutral-600">
+            <p className="mt-2 text-sm text-texto-suave">
               O modelo das Notas Explicativas apresenta até três exercícios lado a lado.
               Envie o Balanço e a DRE de cada ano anterior que deva aparecer no
               comparativo. Anos não enviados aparecem zerados e podem ser corrigidos na
@@ -234,7 +234,7 @@ export function GerarNotas() {
 
             {([0, 1] as const).map((indice) => (
               <div key={indice} className="mt-4">
-                <p className="mb-2 text-sm font-medium text-neutral-800">
+                <p className="mb-2 text-sm font-medium text-texto-suave">
                   Exercício de {store.ano - indice - 1}
                 </p>
                 <div className="grid gap-4 lg:grid-cols-2">
@@ -271,16 +271,16 @@ export function GerarNotas() {
             ))}
           </details>
 
-          <div className="grid gap-4 rounded-lg border border-neutral-200 bg-white p-5 sm:grid-cols-3">
+          <div className="grid gap-4 rounded-lg border border-borda bg-superficie p-5 sm:grid-cols-3">
             <div>
-              <label htmlFor="empresa" className="mb-1 block text-sm font-medium text-neutral-800">
+              <label htmlFor="empresa" className="mb-1 block text-sm font-medium text-texto-suave">
                 Empresa *
               </label>
               <select
                 id="empresa"
                 value={store.empresaId}
                 onChange={(evento) => store.setEmpresaId(evento.target.value)}
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                className="campo"
               >
                 <option value="">Selecione...</option>
                 {(empresas.data ?? []).map((empresa) => (
@@ -292,7 +292,7 @@ export function GerarNotas() {
             </div>
 
             <div>
-              <label htmlFor="ano" className="mb-1 block text-sm font-medium text-neutral-800">
+              <label htmlFor="ano" className="mb-1 block text-sm font-medium text-texto-suave">
                 Ano do exercício *
               </label>
               <input
@@ -302,12 +302,12 @@ export function GerarNotas() {
                 max={2999}
                 value={store.ano}
                 onChange={(evento) => store.setAno(Number(evento.target.value))}
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm tabular-nums focus:border-neutral-900 focus:outline-none"
+                className="campo"
               />
             </div>
 
             <div>
-              <label htmlFor="aprovacao" className="mb-1 block text-sm font-medium text-neutral-800">
+              <label htmlFor="aprovacao" className="mb-1 block text-sm font-medium text-texto-suave">
                 Data de aprovação *
               </label>
               <input
@@ -316,7 +316,7 @@ export function GerarNotas() {
                 placeholder="20 de julho de 2026"
                 value={store.dataAprovacao}
                 onChange={(evento) => store.setDataAprovacao(evento.target.value)}
-                className="w-full rounded border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
+                className="campo"
               />
             </div>
           </div>
@@ -326,13 +326,13 @@ export function GerarNotas() {
               type="button"
               onClick={enviar}
               disabled={processando}
-              className="inline-flex items-center gap-2 rounded bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="inline-flex items-center gap-2 btn-ouro px-5 py-2.5"
             >
               {processando && <Loader2 className="h-4 w-4 animate-spin" />}
               {processando ? 'Processando...' : 'Processar'}
             </button>
             {processando && status.data?.etapa_atual && (
-              <span className="text-sm text-neutral-600">{status.data.etapa_atual}</span>
+              <span className="text-sm text-texto-suave">{status.data.etapa_atual}</span>
             )}
           </div>
         </div>
@@ -348,14 +348,14 @@ export function GerarNotas() {
             <button
               type="button"
               onClick={() => store.setStep(1)}
-              className="rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
+              className="btn-neutro"
             >
               Voltar
             </button>
             <button
               type="button"
               onClick={confirmarEGerar}
-              className="rounded bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
+              className="btn-ouro px-5 py-2.5"
             >
               Confirmar e Gerar
             </button>
@@ -364,29 +364,29 @@ export function GerarNotas() {
       )}
 
       {store.step === 3 && (
-        <div className="rounded-lg border border-neutral-200 bg-white p-8">
+        <div className="rounded-lg border border-borda bg-superficie p-8">
           {gerando ? (
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <Loader2 className="h-5 w-5 animate-spin text-neutral-700" />
-                <p className="text-sm text-neutral-700">
+                <Loader2 className="h-5 w-5 animate-spin text-texto-suave" />
+                <p className="text-sm text-texto-suave">
                   Gerando o documento Word com o papel timbrado...
                 </p>
               </div>
               <Progress.Root
                 value={null}
-                className="h-2 w-full overflow-hidden rounded-full bg-neutral-200"
+                className="h-2 w-full overflow-hidden rounded-full bg-superficie-alt"
               >
-                <Progress.Indicator className="h-full w-1/3 animate-pulse rounded-full bg-neutral-900" />
+                <Progress.Indicator className="h-full w-1/3 animate-pulse rounded-full bg-ouro" />
               </Progress.Root>
             </div>
           ) : (
             <div className="space-y-6">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-neutral-900" />
+                <CheckCircle2 className="h-6 w-6 text-texto" />
                 <div>
-                  <p className="font-medium text-neutral-900">Documento pronto</p>
-                  <p className="text-sm text-neutral-600">
+                  <p className="font-medium text-texto">Documento pronto</p>
+                  <p className="text-sm text-texto-suave">
                     Notas_Explicativas_{store.ano}.docx
                   </p>
                 </div>
@@ -394,10 +394,10 @@ export function GerarNotas() {
 
               <Progress.Root
                 value={100}
-                className="h-2 w-full overflow-hidden rounded-full bg-neutral-200"
+                className="h-2 w-full overflow-hidden rounded-full bg-superficie-alt"
               >
                 <Progress.Indicator
-                  className="h-full rounded-full bg-neutral-900 transition-all"
+                  className="h-full rounded-full bg-ouro transition-all"
                   style={{ width: '100%' }}
                 />
               </Progress.Root>
@@ -407,14 +407,14 @@ export function GerarNotas() {
                   type="button"
                   onClick={baixar}
                   disabled={!status.data?.output_disponivel}
-                  className="inline-flex items-center gap-2 rounded bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 btn-ouro px-5 py-2.5"
                 >
                   <Download className="h-4 w-4" /> Baixar .docx
                 </button>
                 <button
                   type="button"
                   onClick={() => store.reset()}
-                  className="rounded border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-100"
+                  className="btn-neutro"
                 >
                   Gerar outro
                 </button>

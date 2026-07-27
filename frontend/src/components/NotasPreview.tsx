@@ -108,14 +108,14 @@ function CampoValor({
   onChange: (novo: number | null) => void
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-neutral-100 py-2 last:border-0">
-      <label className="flex-1 text-sm text-neutral-700">{rotulo}</label>
+    <div className="flex items-center gap-3 border-b border-borda/60 py-2 last:border-0">
+      <label className="flex-1 text-sm text-texto-suave">{rotulo}</label>
       <input
         type="text"
         defaultValue={valor === null ? '' : formatarValor(valor)}
         onBlur={(evento) => onChange(parsearValor(evento.target.value))}
         aria-label={rotulo}
-        className="w-40 rounded border border-neutral-300 px-2 py-1 text-right text-sm tabular-nums focus:border-neutral-900 focus:outline-none"
+        className="campo w-40 px-2 py-1 text-right font-mono tabular-nums"
       />
     </div>
   )
@@ -123,8 +123,8 @@ function CampoValor({
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-neutral-200 bg-white p-5">
-      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-neutral-900">
+    <section className="rounded-lg border border-borda bg-superficie p-5">
+      <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-texto">
         {titulo}
       </h3>
       {children}
@@ -219,7 +219,7 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
 
   const exercicio = dados.exercicios[indiceExercicio]
   if (!exercicio) {
-    return <p className="text-sm text-neutral-600">Nenhum exercício extraído.</p>
+    return <p className="text-sm text-texto-suave">Nenhum exercício extraído.</p>
   }
 
   const balanco: Balanco = exercicio.balanco
@@ -229,7 +229,7 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
   return (
     <div className="space-y-8">
       {dados.exercicios.length > 1 && (
-        <div className="flex flex-wrap gap-2 border-b border-neutral-200 pb-3">
+        <div className="flex flex-wrap gap-2 border-b border-borda pb-3">
           {dados.exercicios.map((e, indice) => (
             <button
               key={e.ano}
@@ -237,8 +237,8 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
               onClick={() => setIndiceExercicio(indice)}
               className={`rounded px-3 py-1.5 text-sm ${
                 indice === indiceExercicio
-                  ? 'bg-neutral-900 text-white'
-                  : 'text-neutral-600 hover:bg-neutral-100'
+                  ? 'bg-ouro text-fundo-alt'
+                  : 'text-texto-suave hover:bg-superficie-alt hover:text-texto'
               }`}
             >
               Exercício {e.ano}
@@ -248,10 +248,10 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
       )}
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+        <h2 className="mb-3 text-lg font-semibold text-texto">
           Balanço Patrimonial de {exercicio.ano}
         </h2>
-        <p className="mb-4 text-sm text-neutral-600">
+        <p className="mb-4 text-sm text-texto-suave">
           Confira os valores extraídos e corrija o que for necessário antes de gerar o
           documento. Valores credores aparecem negativos, como no relatório do Domínio.
         </p>
@@ -276,7 +276,7 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+        <h2 className="mb-3 text-lg font-semibold text-texto">
           Demonstração do Resultado
         </h2>
 
@@ -363,17 +363,17 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+        <h2 className="mb-3 text-lg font-semibold text-texto">
           Movimentação do Imobilizado ({exercicio.ano})
         </h2>
-        <p className="mb-4 text-sm text-neutral-600">
+        <p className="mb-4 text-sm text-texto-suave">
           O balanço informa apenas os saldos. Preencha aqui as aquisições, baixas e a
           depreciação do período que aparecerão na Nota 08. O saldo anterior vem do balanço
           do exercício precedente, quando enviado.
         </p>
 
         {Object.keys(exercicio.movimentacao_imobilizado ?? {}).length === 0 ? (
-          <p className="rounded-lg border border-neutral-200 bg-white p-5 text-sm text-neutral-500">
+          <p className="rounded-lg border border-borda bg-superficie p-5 text-sm text-texto-fraco">
             Nenhum grupo de imobilizado encontrado neste exercício.
           </p>
         ) : (
@@ -402,10 +402,10 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+        <h2 className="mb-3 text-lg font-semibold text-texto">
           Natureza das Despesas e Custos ({exercicio.ano})
         </h2>
-        <p className="mb-4 text-sm text-neutral-600">
+        <p className="mb-4 text-sm text-texto-suave">
           A DRE do Domínio informa apenas o total das despesas operacionais. Ajuste aqui a
           abertura por natureza que aparecerá na Nota 18 — o total da coluna deve fechar com
           a DRE.
@@ -438,13 +438,13 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
       </div>
 
       <div>
-        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+        <h2 className="mb-3 text-lg font-semibold text-texto">
           Notas que serão geradas ({dados.notas.length})
         </h2>
-        <ol className="grid gap-1 rounded-lg border border-neutral-200 bg-white p-5 text-sm text-neutral-700 sm:grid-cols-2">
+        <ol className="grid gap-1 rounded-lg border border-borda bg-superficie p-5 text-sm text-texto-suave sm:grid-cols-2">
           {dados.notas.map((nota) => (
             <li key={nota.numero}>
-              <span className="font-medium text-neutral-900">
+              <span className="font-medium text-texto">
                 {String(nota.numero).padStart(2, '0')}.
               </span>{' '}
               {nota.titulo}

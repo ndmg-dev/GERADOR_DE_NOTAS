@@ -16,6 +16,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    // Bind mounts do Docker no Windows não propagam eventos de arquivo; sem
+    // polling o HMR não enxerga as edições feitas fora do contêiner.
+    watch: process.env.IN_DOCKER === 'true' ? { usePolling: true, interval: 300 } : undefined,
     proxy: {
       '/api': {
         target: apiTarget,

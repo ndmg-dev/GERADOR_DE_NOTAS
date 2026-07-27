@@ -46,13 +46,13 @@ export function UploadZone({
 
   if (arquivo) {
     return (
-      <div className="rounded-lg border border-neutral-300 bg-neutral-50 p-6">
-        <p className="text-sm font-semibold text-neutral-900">{titulo}</p>
-        <div className="mt-4 flex items-center gap-3 rounded-md border border-neutral-200 bg-white p-3">
-          <FileText className="h-5 w-5 shrink-0 text-neutral-600" />
+      <div className="cartao-destaque p-5">
+        <p className="text-sm font-semibold text-texto">{titulo}</p>
+        <div className="mt-4 flex items-center gap-3 rounded-md border border-borda bg-fundo-alt p-3">
+          <FileText className="h-5 w-5 shrink-0 text-ouro" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm text-neutral-900">{arquivo.name}</p>
-            <p className="text-xs text-neutral-500">
+            <p className="truncate text-sm text-texto">{arquivo.name}</p>
+            <p className="font-mono text-xs text-texto-fraco">
               {(arquivo.size / 1024 / 1024).toFixed(2)} MB
             </p>
           </div>
@@ -60,7 +60,7 @@ export function UploadZone({
             type="button"
             onClick={() => onArquivoSelecionado(null)}
             aria-label={`Remover ${titulo}`}
-            className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+            className="rounded p-1 text-texto-fraco transition-colors hover:bg-superficie-alt hover:text-texto"
           >
             <X className="h-4 w-4" />
           </button>
@@ -72,20 +72,22 @@ export function UploadZone({
   return (
     <div
       {...getRootProps()}
-      className={`cursor-pointer rounded-lg border-2 border-dashed p-6 transition-colors ${
+      className={`cursor-pointer rounded-lg border-2 border-dashed p-5 transition-colors ${
         isDragActive
-          ? 'border-neutral-900 bg-neutral-100'
-          : 'border-neutral-300 bg-white hover:border-neutral-400'
+          ? 'border-ouro bg-ouro-tenue'
+          : 'border-borda bg-superficie hover:border-borda-clara'
       }`}
     >
       <input {...getInputProps()} />
-      <p className="text-sm font-semibold text-neutral-900">{titulo}</p>
+      <p className="text-sm font-semibold text-texto">{titulo}</p>
       <div className="mt-6 flex flex-col items-center gap-2 text-center">
-        <Upload className="h-8 w-8 text-neutral-400" />
-        <p className="text-sm text-neutral-600">
-          {isDragActive ? 'Solte o arquivo aqui' : 'Arraste o PDF ou clique para selecionar'}
+        <Upload className={`h-8 w-8 ${isDragActive ? 'text-ouro' : 'text-texto-fraco'}`} />
+        <p className="text-sm text-texto-suave">
+          {isDragActive
+            ? 'Solte o arquivo aqui'
+            : 'Arraste o PDF ou clique para selecionar'}
         </p>
-        <p className="text-xs text-neutral-500">{descricao}</p>
+        <p className="text-xs text-texto-fraco">{descricao}</p>
       </div>
     </div>
   )

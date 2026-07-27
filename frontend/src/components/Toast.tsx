@@ -60,26 +60,26 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 setMensagens((atuais) => atuais.filter((m) => m.id !== mensagem.id))
               }
             }}
-            className="flex items-start gap-3 rounded-md border border-neutral-200 bg-white p-4 shadow-lg"
+            className="flex items-start gap-3 rounded-md border border-borda bg-superficie-alt p-4 shadow-lg"
           >
             {mensagem.variante === 'sucesso' ? (
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-neutral-900" />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-ouro" />
             ) : (
-              <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+              <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-erro" />
             )}
             <div className="flex-1">
-              <ToastPrimitive.Title className="text-sm font-semibold text-neutral-900">
+              <ToastPrimitive.Title className="text-sm font-semibold text-texto">
                 {mensagem.titulo}
               </ToastPrimitive.Title>
               {mensagem.descricao && (
-                <ToastPrimitive.Description className="mt-1 text-sm text-neutral-600">
+                <ToastPrimitive.Description className="mt-1 text-sm text-texto-suave">
                   {mensagem.descricao}
                 </ToastPrimitive.Description>
               )}
             </div>
             <ToastPrimitive.Close
               aria-label="Fechar"
-              className="text-neutral-400 hover:text-neutral-700"
+              className="text-texto-fraco transition-colors hover:text-texto"
             >
               <X className="h-4 w-4" />
             </ToastPrimitive.Close>
