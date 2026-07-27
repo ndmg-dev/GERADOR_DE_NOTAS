@@ -1,0 +1,12 @@
+.env
+node_modules/
+dist/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+backend/storage/
+*.docx
+!specs/**/*.docx
+.DS_Store
