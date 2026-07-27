@@ -150,12 +150,27 @@ export interface NaturezaDespesas {
   outros: number | null
 }
 
+/**
+ * Movimentação de um grupo do imobilizado na Nota 08. O balanço só informa os
+ * saldos, então estes valores são digitados na revisão.
+ */
+export interface MovimentoImobilizado {
+  rotulo: string
+  aquisicoes: number | null
+  baixas: number | null
+  depreciacao: number | null
+}
+
+/** Indexada pelo nome normalizado do grupo. */
+export type MovimentacaoImobilizado = Record<string, MovimentoImobilizado>
+
 /** Um exercício social com seus demonstrativos já extraídos. */
 export interface Exercicio {
   ano: number
   balanco: Balanco
   dre: Dre
   natureza_despesas: NaturezaDespesas
+  movimentacao_imobilizado: MovimentacaoImobilizado
 }
 
 export interface DadosExtraidos {

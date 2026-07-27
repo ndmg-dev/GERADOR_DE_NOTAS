@@ -56,6 +56,12 @@ const ROTULOS_DRE: Record<string, string> = {
   total: 'Total das despesas operacionais',
 }
 
+const ROTULOS_MOVIMENTO = {
+  aquisicoes: 'Aquisições',
+  baixas: 'Baixas',
+  depreciacao: 'Depreciação do período',
+} as const
+
 const ROTULOS_NATUREZA = {
   custo_servico: 'Custo do serviço prestado',
   servicos_terceiros: 'Serviços de terceiros',
@@ -354,6 +360,45 @@ export function NotasPreview({ dados, onChange }: NotasPreviewProps) {
             />
           </Secao>
         </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-lg font-semibold text-neutral-900">
+          Movimentação do Imobilizado ({exercicio.ano})
+        </h2>
+        <p className="mb-4 text-sm text-neutral-600">
+          O balanço informa apenas os saldos. Preencha aqui as aquisições, baixas e a
+          depreciação do período que aparecerão na Nota 08. O saldo anterior vem do balanço
+          do exercício precedente, quando enviado.
+        </p>
+
+        {Object.keys(exercicio.movimentacao_imobilizado ?? {}).length === 0 ? (
+          <p className="rounded-lg border border-neutral-200 bg-white p-5 text-sm text-neutral-500">
+            Nenhum grupo de imobilizado encontrado neste exercício.
+          </p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {Object.entries(exercicio.movimentacao_imobilizado).map(
+              ([chave, movimento]) => (
+                <Secao key={chave} titulo={movimento.rotulo}>
+                  {(['aquisicoes', 'baixas', 'depreciacao'] as const).map((campo) => (
+                    <CampoValor
+                      key={campo}
+                      rotulo={ROTULOS_MOVIMENTO[campo]}
+                      valor={movimento[campo] ?? null}
+                      onChange={(novo) =>
+                        atualizar(
+                          [...base, 'movimentacao_imobilizado', chave, campo],
+                          novo,
+                        )
+                      }
+                    />
+                  ))}
+                </Secao>
+              ),
+            )}
+          </div>
+        )}
       </div>
 
       <div>

@@ -123,8 +123,9 @@ renumeradas em sequência.
 > **Nota 08 (Imobilizado):** o modelo usa uma tabela de movimentação
 > (`saldo anterior · aquisições · baixas · depreciação · saldo atual`). O saldo anterior é
 > derivado do balanço do exercício precedente, quando enviado; **aquisições, baixas e a
-> depreciação do período não constam do balanço** e saem zeradas, para o contador preencher
-> no passo de revisão.
+> depreciação do período não constam do balanço** e são digitadas por grupo no passo de
+> revisão. Sem preenchimento, a depreciação do período cai para a variação entre os dois
+> exercícios, quando há exercício anterior.
 
 > **Nota 18 (Natureza das Despesas e Custos):** a DRE do Domínio informa apenas o total das
 > despesas operacionais, sem abrir serviços de terceiros e depreciações. O passo de revisão

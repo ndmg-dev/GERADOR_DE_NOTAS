@@ -147,6 +147,10 @@ class Exercicio:
     # das despesas operacionais, então esta composição é preenchida pelo
     # contador no passo de revisão.
     natureza_despesas: dict[str, Any] = field(default_factory=dict)
+    # Movimentação da Nota 08, por grupo do imobilizado. O balanço só informa
+    # os saldos, então aquisições, baixas e a depreciação do período também
+    # são preenchidas na revisão.
+    movimentacao_imobilizado: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, dados: dict[str, Any]) -> Exercicio:
@@ -155,6 +159,7 @@ class Exercicio:
             balanco=dados.get("balanco") or {},
             dre=dados.get("dre") or {},
             natureza_despesas=dados.get("natureza_despesas") or {},
+            movimentacao_imobilizado=dados.get("movimentacao_imobilizado") or {},
         )
 
 
@@ -165,6 +170,50 @@ NATUREZA_LINHAS = (
     ("depreciacoes", "Depreciações", "despesas"),
     ("outros", "Outros Custos e Despesas", "despesas"),
 )
+
+
+# Chaves fixas das duas últimas linhas da Nota 08.
+CHAVE_INTANGIVEL = "INTANGIVEL"
+CHAVE_DEPRECIACAO = "DEPRECIACAO ACUMULADA"
+
+MOVIMENTO_CAMPOS = ("aquisicoes", "baixas", "depreciacao")
+
+
+def movimentacao_imobilizado_padrao(balanco: dict[str, Any]) -> dict[str, Any]:
+    """Estrutura editável da Nota 08, zerada, uma entrada por grupo do balanço.
+
+    O balanço informa apenas os saldos; aquisições, baixas e a depreciação do
+    período são digitadas pelo contador no passo de revisão.
+    """
+
+    def caminho(*chaves: str) -> Any:
+        atual: Any = balanco
+        for chave in chaves:
+            if not isinstance(atual, dict):
+                return None
+            atual = atual.get(chave)
+            if atual is None:
+                return None
+        return atual
+
+    imobilizado = caminho("ativo", "nao_circulante", "imobilizado") or {}
+    zerado = {campo: 0.0 for campo in MOVIMENTO_CAMPOS}
+
+    movimentacao: dict[str, Any] = {
+        _normalizar(grupo["nome"]): {"rotulo": _titulo_legivel(grupo["nome"]), **zerado}
+        for grupo in imobilizado.get("grupos", [])
+    }
+
+    if caminho("ativo", "nao_circulante", "intangivel"):
+        movimentacao[CHAVE_INTANGIVEL] = {"rotulo": "Intangível", **zerado}
+
+    if imobilizado.get("depreciacao_total"):
+        movimentacao[CHAVE_DEPRECIACAO] = {
+            "rotulo": "(-) Depreciação Acumulada",
+            **zerado,
+        }
+
+    return movimentacao
 
 
 def natureza_despesas_padrao(dre: dict[str, Any]) -> dict[str, float]:
@@ -552,6 +601,24 @@ class NotasBuilderService:
             self._atual.balanco, "ativo", "nao_circulante", "intangivel"
         )
 
+        movimentacao = self._atual.movimentacao_imobilizado or {}
+
+        def movimento(chave: str, campo: str) -> float:
+            entrada = movimentacao.get(chave) or {}
+            valor = entrada.get(campo)
+            return float(valor) if isinstance(valor, (int, float)) else 0.0
+
+        # Acumuladores das colunas de movimentação.
+        totais_movimento = dict.fromkeys(MOVIMENTO_CAMPOS, 0.0)
+
+        def registrar(chave: str) -> list[str]:
+            celulas = []
+            for campo in MOVIMENTO_CAMPOS:
+                valor = movimento(chave, campo)
+                totais_movimento[campo] += valor
+                celulas.append(formatar_brl(valor))
+            return celulas
+
         linhas: list[list[str]] = []
         for grupo in imob["grupos"]:
             chave = _normalizar(grupo["nome"])
@@ -559,9 +626,7 @@ class NotasBuilderService:
                 [
                     _titulo_legivel(grupo["nome"]),
                     formatar_brl(saldos_anteriores.get(chave, 0.0)),
-                    formatar_brl(0.0),  # aquisições — editável
-                    formatar_brl(0.0),  # baixas — editável
-                    formatar_brl(0.0),  # depreciação do período — editável
+                    *registrar(chave),
                     formatar_brl(grupo.get("custo")),
                 ]
             )
@@ -580,24 +645,31 @@ class NotasBuilderService:
                 [
                     "Intangível",
                     formatar_brl(intangivel_saldo_anterior),
-                    formatar_brl(0.0),
-                    formatar_brl(0.0),
-                    formatar_brl(0.0),
+                    *registrar(CHAVE_INTANGIVEL),
                     formatar_brl(intangivel["total"]),
                 ]
             )
 
         deprec_atual = imob.get("depreciacao_total") or 0.0
         deprec_anterior = (imob_anterior or {}).get("depreciacao_total") or 0.0
+
+        # Depreciação do período: o valor revisado tem precedência; sem ele,
+        # usa a variação entre os dois exercícios, quando disponível.
+        deprec_periodo = movimento(CHAVE_DEPRECIACAO, "depreciacao")
+        if not deprec_periodo and deprec_anterior:
+            deprec_periodo = deprec_atual - deprec_anterior
+
+        totais_movimento["aquisicoes"] += movimento(CHAVE_DEPRECIACAO, "aquisicoes")
+        totais_movimento["baixas"] += movimento(CHAVE_DEPRECIACAO, "baixas")
+        totais_movimento["depreciacao"] -= deprec_periodo
+
         linhas.append(
             [
                 "(-) Depreciação Acumulada",
                 formatar_brl(-deprec_anterior if deprec_anterior else 0.0),
-                formatar_brl(0.0),
-                formatar_brl(0.0),
-                formatar_brl(-(deprec_atual - deprec_anterior))
-                if deprec_anterior
-                else formatar_brl(0.0),
+                formatar_brl(movimento(CHAVE_DEPRECIACAO, "aquisicoes")),
+                formatar_brl(movimento(CHAVE_DEPRECIACAO, "baixas")),
+                formatar_brl(-deprec_periodo),
                 formatar_brl(-deprec_atual),
             ]
         )
@@ -629,11 +701,9 @@ class NotasBuilderService:
             total=[
                 "Total Imobilizado",
                 formatar_brl(total_anterior),
-                formatar_brl(0.0),
-                formatar_brl(0.0),
-                formatar_brl(
-                    -(deprec_atual - deprec_anterior) if deprec_anterior else 0.0
-                ),
+                formatar_brl(totais_movimento["aquisicoes"]),
+                formatar_brl(totais_movimento["baixas"]),
+                formatar_brl(totais_movimento["depreciacao"]),
                 formatar_brl(total_atual),
             ],
         )

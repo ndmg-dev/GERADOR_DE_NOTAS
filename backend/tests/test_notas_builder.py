@@ -162,6 +162,44 @@ def test_nota_imobilizado_e_tabela_de_movimentacao(notas_comparativas) -> None:
     assert any(l[0] == "(-) Depreciação Acumulada" for l in tabela.linhas)
 
 
+def test_movimentacao_imobilizado_padrao_vem_zerada() -> None:
+    from app.services.notas_builder import movimentacao_imobilizado_padrao
+
+    balanco = PdfParserService().parse_balanco_text(BALANCO_TEXTO)
+    movimentacao = movimentacao_imobilizado_padrao(balanco)
+
+    assert "EDIFICIOS" in movimentacao
+    assert "DEPRECIACAO ACUMULADA" in movimentacao
+    assert movimentacao["EDIFICIOS"]["aquisicoes"] == 0.0
+    assert movimentacao["EDIFICIOS"]["rotulo"] == "Edifícios"
+
+
+def test_nota_imobilizado_usa_movimentacao_revisada() -> None:
+    """Aquisições, baixas e depreciação digitadas na revisão entram na Nota 08."""
+    from app.services.notas_builder import movimentacao_imobilizado_padrao
+
+    exercicio = _exercicio(2025, BALANCO_TEXTO, DRE_TEXTO)
+    movimentacao = movimentacao_imobilizado_padrao(exercicio["balanco"])
+    movimentacao["EDIFICIOS"].update({"aquisicoes": 10_000.00, "baixas": 2_500.00})
+    movimentacao["DEPRECIACAO ACUMULADA"]["depreciacao"] = 7_000.00
+    exercicio["movimentacao_imobilizado"] = movimentacao
+
+    notas = NotasBuilderService().build_all([exercicio], EMPRESA, CONFIG)
+    tabela = _tabela(_por_titulo(notas, "Imobilizado"))
+
+    edificios = next(l for l in tabela.linhas if l[0] == "Edifícios")
+    assert edificios[2] == "10.000,00"  # aquisições
+    assert edificios[3] == "2.500,00"  # baixas
+
+    depreciacao = next(l for l in tabela.linhas if l[0].startswith("(-) Deprecia"))
+    assert depreciacao[4] == "-7.000,00"
+
+    # A linha de total soma as colunas de movimentação.
+    assert tabela.total[2] == "10.000,00"
+    assert tabela.total[3] == "2.500,00"
+    assert tabela.total[4] == "-7.000,00"
+
+
 def test_notas_de_passivo_usam_valores_positivos(notas) -> None:
     tabela = _tabela(_por_titulo(notas, "Fornecedores"))
     assert tabela.total == ["Total", "300.000,00"]

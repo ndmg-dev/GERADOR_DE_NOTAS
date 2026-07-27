@@ -52,6 +52,23 @@ TABLE_STYLE = {
 
 EMU_POR_TWIP = 635  # 1 twip = 1/1440 pol.; 1 pol. = 914400 EMU
 
+# Caracteres de controle que o XML do .docx não aceita (exceto tab e quebras).
+_CONTROLE_INVALIDO = {c: None for c in range(0x20) if c not in (0x09, 0x0A, 0x0D)}
+
+
+def texto_seguro(valor: Any) -> str:
+    """Texto utilizável no XML do documento.
+
+    Remove surrogates soltos e caracteres de controle que fariam o `python-docx`
+    falhar ao serializar — podem chegar de OCR de baixa qualidade ou de dados
+    revisados enviados pelo cliente.
+    """
+    texto = str(valor)
+    if not texto.isascii():
+        # Substitui surrogates soltos, que não sobrevivem à serialização.
+        texto = texto.encode("utf-8", "replace").decode("utf-8")
+    return texto.translate(_CONTROLE_INVALIDO)
+
 
 class DocxGeneratorService:
     """Monta o documento Word final a partir das notas estruturadas."""
@@ -255,7 +272,7 @@ class DocxGeneratorService:
                 continue
             paragrafo = doc.add_paragraph()
             paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = paragrafo.add_run(str(texto))
+            run = paragrafo.add_run(texto_seguro(texto))
             run.bold = negrito
             run.font.name = TABLE_STYLE["font"]
             run.font.size = Pt(tamanho / 2)
@@ -265,7 +282,7 @@ class DocxGeneratorService:
     def _add_nota(self, doc: Document, nota: Nota) -> None:
         titulo = doc.add_paragraph()
         titulo.alignment = WD_ALIGN_PARAGRAPH.LEFT
-        run = titulo.add_run(f"Nota {nota.numero:02d} — {nota.titulo}")
+        run = titulo.add_run(texto_seguro(f"Nota {nota.numero:02d} — {nota.titulo}"))
         run.bold = True
         run.font.name = TABLE_STYLE["font"]
         run.font.size = Pt(TABLE_STYLE["font_size_body"] / 2)
@@ -282,7 +299,7 @@ class DocxGeneratorService:
         paragrafo = doc.add_paragraph()
         paragrafo.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         paragrafo.paragraph_format.space_after = Pt(6)
-        run = paragrafo.add_run(texto)
+        run = paragrafo.add_run(texto_seguro(texto))
         run.font.name = TABLE_STYLE["font"]
         run.font.size = Pt(TABLE_STYLE["font_size_body"] / 2)
 
@@ -290,7 +307,7 @@ class DocxGeneratorService:
         if tabela.titulo:
             paragrafo = doc.add_paragraph()
             paragrafo.paragraph_format.space_after = Pt(2)
-            run = paragrafo.add_run(tabela.titulo)
+            run = paragrafo.add_run(texto_seguro(tabela.titulo))
             run.bold = True
             run.font.name = TABLE_STYLE["font"]
             run.font.size = Pt(TABLE_STYLE["font_size_table"] / 2)
@@ -348,7 +365,7 @@ class DocxGeneratorService:
             WD_ALIGN_PARAGRAPH.RIGHT if alinhar_direita else WD_ALIGN_PARAGRAPH.LEFT
         )
         paragrafo.paragraph_format.space_after = Pt(0)
-        run = paragrafo.add_run(str(texto))
+        run = paragrafo.add_run(texto_seguro(texto))
         run.bold = negrito
         run.font.name = TABLE_STYLE["font"]
         run.font.size = Pt(TABLE_STYLE["font_size_table"] / 2)
@@ -384,7 +401,7 @@ class DocxGeneratorService:
         if data:
             paragrafo = doc.add_paragraph()
             paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            run = paragrafo.add_run(str(data))
+            run = paragrafo.add_run(texto_seguro(data))
             run.font.name = TABLE_STYLE["font"]
             run.font.size = Pt(TABLE_STYLE["font_size_body"] / 2)
 
@@ -432,7 +449,7 @@ class DocxGeneratorService:
             paragrafo = doc.add_paragraph()
             paragrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
             paragrafo.paragraph_format.space_after = Pt(0)
-            run = paragrafo.add_run(texto)
+            run = paragrafo.add_run(texto_seguro(texto))
             run.bold = negrito
             run.font.name = TABLE_STYLE["font"]
             run.font.size = Pt(TABLE_STYLE["font_size_body"] / 2)

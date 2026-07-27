@@ -198,6 +198,32 @@ def test_titulo_do_documento(documento) -> None:
     assert EMPRESA["nome"].upper() in texto
 
 
+def test_texto_seguro_preserva_acentos_e_remove_lixo() -> None:
+    from app.services.docx_generator import texto_seguro
+
+    assert texto_seguro("Edifícios e Construções") == "Edifícios e Construções"
+    assert texto_seguro("tab\there") == "tab\there"
+    # Surrogate solto (OCR ruim ou payload malformado) e caractere de controle.
+    assert texto_seguro("Ve\udcadculos") == "Ve?culos"
+    assert texto_seguro("quebra\x00controle") == "quebracontrole"
+
+
+def test_dados_com_caractere_invalido_nao_quebram_a_geracao(
+    notas, empresa_com_timbrado, tmp_path
+) -> None:
+    """Um surrogate solto nos dados não pode derrubar a geração inteira."""
+    from app.services.notas_builder import Paragrafo
+
+    notas[0].conteudo.insert(0, Paragrafo(texto="Raz\udcadao social estranha"))
+
+    saida = tmp_path / "com_lixo.docx"
+    DocxGeneratorService().generate(notas, empresa_com_timbrado, CONFIG, saida)
+
+    assert saida.exists()
+    texto = "\n".join(p.text for p in Document(str(saida)).paragraphs)
+    assert "Raz?ao social estranha" in texto
+
+
 def test_empresa_sem_timbrado_nao_falha(notas, tmp_path) -> None:
     saida = tmp_path / "sem_timbrado.docx"
     DocxGeneratorService().generate(notas, dict(EMPRESA), CONFIG, saida)

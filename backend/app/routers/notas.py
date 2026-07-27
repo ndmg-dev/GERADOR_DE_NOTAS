@@ -34,7 +34,11 @@ from app.schemas import (
     StatusResponse,
 )
 from app.services.docx_generator import DocxGeneratorService
-from app.services.notas_builder import NotasBuilderService, natureza_despesas_padrao
+from app.services.notas_builder import (
+    NotasBuilderService,
+    movimentacao_imobilizado_padrao,
+    natureza_despesas_padrao,
+)
 from app.services.pdf_parser import PdfParserService
 from app.services.storage import StorageService
 
@@ -168,14 +172,18 @@ async def processar_job(job_id: uuid.UUID) -> None:
                 await db.commit()
 
                 dre = parser.parse_dre(entrada["dre_path"])
+                balanco = parser.parse_balanco(entrada["balanco_path"])
                 exercicios.append(
                     {
                         "ano": ano,
-                        "balanco": parser.parse_balanco(entrada["balanco_path"]),
+                        "balanco": balanco,
                         "dre": dre,
-                        # Abertura da Nota 18 — a DRE só traz o total, então
-                        # o contador ajusta esses valores na revisão.
+                        # Campos que os demonstrativos não fornecem e que o
+                        # contador ajusta no passo de revisão.
                         "natureza_despesas": natureza_despesas_padrao(dre),
+                        "movimentacao_imobilizado": movimentacao_imobilizado_padrao(
+                            balanco
+                        ),
                     }
                 )
 
