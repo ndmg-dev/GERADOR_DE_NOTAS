@@ -1,18 +1,27 @@
+# Produção — pensado para deploy no Coolify.
+#
+# O Coolify trata este arquivo como fonte da verdade e roteia o tráfego pelo
+# proxy dele, então nenhum serviço publica portas no host: só o frontend fica
+# acessível, pelo domínio configurado. O banco e o backend permanecem na rede
+# interna do stack.
+
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_DB: notas_db
       POSTGRES_USER: notas_user
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Executado apenas na primeira subida, com o volume ainda vazio.
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notas_user -d notas_db"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     restart: unless-stopped
 
   backend:
@@ -24,11 +33,20 @@ services:
       STORAGE_PATH: /app/storage
       TESSERACT_CMD: /usr/bin/tesseract
       ENVIRONMENT: production
-      FRONTEND_URL: ${FRONTEND_URL}
+      # Origem liberada no CORS. Com o nginx servindo tudo no mesmo domínio
+      # o CORS nem chega a ser exercido, mas o valor é usado se a API for
+      # consumida de fora.
+      FRONTEND_URL: ${SERVICE_URL_FRONTEND:-${FRONTEND_URL:-http://localhost}}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
       FILE_RETENTION_DAYS: ${FILE_RETENTION_DAYS:-30}
+      UPLOAD_RETENTION_HOURS: ${UPLOAD_RETENTION_HOURS:-24}
+      # O scheduler de retenção roda no próprio processo. Se um dia o backend
+      # for escalado para mais de uma réplica, deixe-o ativo em apenas uma.
+      ENABLE_SCHEDULER: ${ENABLE_SCHEDULER:-true}
     volumes:
       - storage_data:/app/storage
+    expose:
+      - "8000"
     depends_on:
       db:
         condition: service_healthy
@@ -36,14 +54,18 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    ports:
-      - "80:80"
+      # Contexto na raiz: a imagem precisa do código da SPA e do nginx.conf.
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+    environment:
+      # O Coolify preenche esta variável e publica o serviço no domínio
+      # correspondente. O domínio pode ser trocado pela interface.
+      - SERVICE_FQDN_FRONTEND_80
+    expose:
+      - "80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

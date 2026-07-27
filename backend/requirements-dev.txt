@@ -1,0 +1,6 @@
+# Dependências usadas apenas em desenvolvimento e nos testes.
+# A imagem de produção instala somente requirements.txt.
+-r requirements.txt
+
+pytest==8.3.2
+pytest-asyncio==0.23.8

@@ -1,0 +1,33 @@
+# Controle de versão e ferramentas
+.git
+.gitignore
+.github
+.claude
+
+# Documentação e specs
+*.md
+specs/
+
+# Dados reais de clientes — nunca vão para a imagem
+random_files/
+
+# Ambientes locais
+.env
+.env.*
+!.env.example
+
+# Python
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/.venv/
+**/venv/
+backend/tests/
+backend/storage/
+
+# Node
+**/node_modules/
+frontend/dist/
+
+# Artefatos
+*.docx

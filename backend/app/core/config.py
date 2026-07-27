@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # Retenção
     file_retention_days: int = 30
     upload_retention_hours: int = 24
+    # O scheduler roda dentro do processo da API. Com mais de uma réplica do
+    # backend, mantenha-o ativo em apenas uma para não duplicar as limpezas.
+    enable_scheduler: bool = True
 
     # OCR
     tesseract_cmd: str = "/usr/bin/tesseract"

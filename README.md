@@ -56,12 +56,22 @@ docker compose down -v && docker compose up --build
 
 ### Produção
 
+O deploy é feito no Coolify — o passo a passo está em [DEPLOY.md](DEPLOY.md).
+
+Para subir localmente com a configuração de produção:
+
 ```bash
-docker compose -f docker-compose.prod.yml up --build -d
+POSTGRES_PASSWORD=uma_senha_forte \
+  docker compose -f docker-compose.prod.yml up --build -d
 ```
 
-O frontend é servido como build estático pelo Nginx ([`nginx/nginx.conf`](nginx/nginx.conf)),
-que também faz o proxy de `/api/*` para o backend e aplica rate limiting.
+Nenhum serviço publica portas no host: o frontend é o único ponto de entrada e
+fica acessível pelo proxy. O Nginx ([`nginx/nginx.conf`](nginx/nginx.conf)) serve o
+build estático da SPA, faz o proxy de `/api/*` para o backend e aplica rate limiting.
+
+> **A aplicação não tem autenticação.** Antes de expor um domínio público, leia a
+> primeira seção do [DEPLOY.md](DEPLOY.md) e coloque uma proteção de acesso na frente
+> (restrição por IP, Basic Auth no proxy, VPN ou Cloudflare Access).
 
 ---
 
@@ -229,8 +239,11 @@ Veja [`.env.example`](.env.example).
 
 ```bash
 # Backend
-cd backend && python -m pytest tests/ -v
+cd backend && pip install -r requirements-dev.txt && python -m pytest tests/ -v
 
 # Frontend (checagem de tipos e build)
 cd frontend && npm run lint && npm run build
 ```
+
+`requirements.txt` traz apenas o necessário para rodar; as dependências de teste
+ficam em `requirements-dev.txt` e não vão para a imagem de produção.

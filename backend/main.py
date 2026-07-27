@@ -44,7 +44,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings.ensure_directories()
     storage = StorageService()
-    storage.start_scheduler()
+    if settings.enable_scheduler:
+        storage.start_scheduler()
+    else:
+        logger.info("Scheduler de retenção desabilitado nesta réplica")
     logger.info("Aplicação iniciada (ambiente=%s)", settings.environment)
     try:
         yield
@@ -62,6 +65,11 @@ app = FastAPI(
     ),
     version="1.1.0",
     lifespan=lifespan,
+    # Como a API não tem autenticação, a documentação interativa fica
+    # disponível apenas fora de produção, para não expor a superfície da API.
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
+    openapi_url=None if settings.is_production else "/openapi.json",
 )
 
 app.state.limiter = limiter
