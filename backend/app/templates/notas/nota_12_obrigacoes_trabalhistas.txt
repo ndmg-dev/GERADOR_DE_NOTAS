@@ -1,0 +1,3 @@
+As obrigações trabalhistas e previdenciárias compreendem os valores devidos a empregados e aos órgãos previdenciários, incluindo salários, encargos sociais e provisões de férias e décimo terceiro salário, acrescidos dos respectivos encargos.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, conforme demonstrado:

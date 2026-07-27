@@ -1,0 +1,3 @@
+As obrigações com fornecedores referem-se a compromissos assumidos pela Sociedade na aquisição de bens e na contratação de serviços vinculados às suas atividades operacionais, registrados pelos valores conhecidos ou calculáveis, acrescidos dos encargos incorridos até a data do balanço.
+
+O saldo em 31 de dezembro de {config.ano} era de R$ {total}, integralmente classificado no passivo circulante:

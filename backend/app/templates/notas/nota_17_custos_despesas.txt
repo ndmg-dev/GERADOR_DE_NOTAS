@@ -1,0 +1,3 @@
+Os custos e as despesas operacionais são reconhecidos pelo regime de competência dos exercícios e estão diretamente relacionados às atividades desenvolvidas pela Sociedade.
+
+As despesas operacionais do exercício findo em 31 de dezembro de {config.ano} totalizaram R$ {despesas_total}. A composição dos custos e despesas do período é a seguinte:

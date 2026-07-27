@@ -1,0 +1,3 @@
+O grupo de outras obrigações reúne os compromissos de curto prazo não classificados nos demais grupos do passivo circulante, registrados pelos valores conhecidos ou calculáveis na data do balanço.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo totalizava R$ {total}, assim composto:

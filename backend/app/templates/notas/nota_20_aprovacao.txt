@@ -1,0 +1,3 @@
+As demonstrações contábeis referentes ao exercício findo em 31 de dezembro de {config.ano}, acompanhadas destas Notas Explicativas, foram concluídas e aprovadas pela Administração da {empresa.nome} em {config.data_aprovacao}.
+
+A Administração declara que, entre a data de encerramento do exercício e a data de aprovação destas demonstrações, não ocorreram eventos subsequentes que exigissem ajustes ou divulgação adicional nas demonstrações contábeis ora apresentadas.

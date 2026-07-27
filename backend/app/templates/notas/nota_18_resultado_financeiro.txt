@@ -1,0 +1,3 @@
+O resultado financeiro compreende as receitas provenientes de aplicações financeiras, descontos obtidos e demais rendimentos, deduzidas das despesas com juros, tarifas bancárias, descontos concedidos e demais encargos financeiros incorridos no exercício.
+
+A composição do resultado financeiro do exercício findo em 31 de dezembro de {config.ano} é a seguinte:

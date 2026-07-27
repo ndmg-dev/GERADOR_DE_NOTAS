@@ -1,0 +1,3 @@
+O ativo realizável a longo prazo compreende os direitos cuja realização é esperada após o término do exercício social subsequente à data do balanço.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, conforme composição apresentada a seguir:

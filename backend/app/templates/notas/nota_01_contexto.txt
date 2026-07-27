@@ -1,0 +1,5 @@
+A {empresa.nome}, inscrita no CNPJ sob o nº {empresa.cnpj}, com sede em {empresa.endereco}, é uma sociedade empresária de direito privado, constituída sob a forma de sociedade limitada, que tem por objeto social a exploração das atividades previstas em seu contrato social.
+
+A Sociedade desenvolve suas atividades operacionais de forma contínua, e a Administração não tem conhecimento de qualquer evento ou condição que possa comprometer, de forma relevante, a continuidade de suas operações no futuro previsível.
+
+As operações são conduzidas dentro dos limites da legislação aplicável, e as demonstrações contábeis do exercício findo em 31 de dezembro de {config.ano} refletem, em todos os aspectos relevantes, a situação patrimonial e financeira da Sociedade.

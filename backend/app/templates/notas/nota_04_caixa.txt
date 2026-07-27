@@ -1,0 +1,3 @@
+As disponibilidades compreendem os valores em caixa, os saldos mantidos em contas correntes bancárias e as aplicações financeiras de liquidez imediata, prontamente conversíveis em montante conhecido de caixa e sujeitas a risco insignificante de mudança de valor.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo era de R$ {total}, composto conforme demonstrado a seguir:

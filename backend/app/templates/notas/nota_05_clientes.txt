@@ -1,0 +1,3 @@
+Representam os valores a receber decorrentes das operações da Sociedade, registrados pelo valor nominal dos títulos e demonstrados líquidos das estimativas de perdas com créditos de liquidação duvidosa, quando aplicável.
+
+A Administração avalia periodicamente a recuperabilidade desses créditos e entende que o saldo apresentado de R$ {total} em 31 de dezembro de {config.ano} é integralmente realizável.

@@ -1,0 +1,3 @@
+O grupo de outros créditos é composto por adiantamentos, tributos a recuperar e demais valores a receber de curto prazo, cuja realização é esperada dentro do exercício social seguinte.
+
+Em 31 de dezembro de {config.ano}, o saldo do grupo totalizava R$ {total}, assim distribuído:

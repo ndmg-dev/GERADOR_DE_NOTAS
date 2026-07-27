@@ -1,0 +1,7 @@
+As demonstrações contábeis do exercício findo em 31 de dezembro de {config.ano} foram elaboradas e estão sendo apresentadas de acordo com as práticas contábeis adotadas no Brasil, observando-se as disposições da Lei nº 6.404/76 e alterações posteriores, bem como os pronunciamentos, orientações e interpretações emitidos pelo Comitê de Pronunciamentos Contábeis (CPC) e aprovados pelo Conselho Federal de Contabilidade (CFC).
+
+A Sociedade adota, para fins de elaboração e divulgação de suas demonstrações contábeis, a NBC TG 1000 (R1) — Contabilidade para Pequenas e Médias Empresas, aplicável à sua estrutura e ao seu porte.
+
+As demonstrações contábeis foram preparadas com base no custo histórico, exceto quando indicado de outra forma, e estão expressas em reais (R$). A moeda funcional e de apresentação da Sociedade é o real.
+
+A elaboração das demonstrações contábeis requer o uso de estimativas e julgamentos por parte da Administração. Os resultados efetivos podem diferir dessas estimativas, que são revisadas de forma contínua.

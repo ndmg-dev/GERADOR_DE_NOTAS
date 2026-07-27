@@ -1,0 +1,3 @@
+A receita é reconhecida pelo regime de competência, quando os riscos e benefícios significativos são transferidos ao cliente, o valor pode ser mensurado de forma confiável e é provável que os benefícios econômicos fluam para a Sociedade.
+
+A receita operacional bruta do exercício findo em 31 de dezembro de {config.ano} foi de R$ {receita_bruta}, a qual, deduzida dos tributos incidentes sobre as operações, resultou em receita operacional líquida de R$ {receita_liquida}:

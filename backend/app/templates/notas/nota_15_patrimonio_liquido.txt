@@ -1,0 +1,3 @@
+O patrimônio líquido é composto pelo capital social integralizado, pelas reservas constituídas na forma da legislação e do contrato social e pelos ajustes de avaliação patrimonial, quando aplicáveis.
+
+Em 31 de dezembro de {config.ano}, o patrimônio líquido da Sociedade totalizava R$ {total}, com a seguinte composição:
