@@ -6,27 +6,29 @@ from app.services.notas_builder import NotasBuilderService, Tabela, formatar_brl
 from app.services.pdf_parser import PdfParserService
 from tests.test_pdf_parser import BALANCO_TEXTO, DRE_TEXTO
 
+# Dados fictícios. Nenhum dado real de cliente entra nos testes: o repositório
+# é versionado e CPF é dado pessoal.
 EMPRESA = {
-    "nome": "Soberana Faculdade de Saúde de Petrolina LTDA",
-    "cnpj": "19.265.047/0001-05",
-    "endereco": "Av. Coronel Antônio Honorato Viana, 1526 — Petrolina/PE",
+    "nome": "Instituição de Ensino Exemplo Ltda",
+    "cnpj": "11.222.333/0001-81",
+    "endereco": "Avenida das Palmeiras, 1000 — Cidade Exemplo/UF",
     "socios": [
         {
-            "nome": "Albert Mario Antonio Luis Carlos Euclides de Cornides",
-            "cpf": "657.760.205-06",
+            "nome": "Ana Paula Ribeiro de Souza",
+            "cpf": "111.444.777-35",
             "participacao": "R$ 50.000,00",
             "cargo": "REPRESENTANTE LEGAL",
         },
         {
-            "nome": "André Luiz Barbosa Machado",
-            "cpf": "123.456.789-00",
+            "nome": "Carlos Eduardo Nunes",
+            "cpf": "222.333.444-05",
             "participacao": "R$ 50.000,00",
             "cargo": "REPRESENTANTE LEGAL",
         },
     ],
-    "contador_nome": "João Alberto Mesquita de Mendonça",
-    "contador_crc": "PE022841/O-3",
-    "contador_cpf": "034.826.484-41",
+    "contador_nome": "Marina Alves Pereira",
+    "contador_crc": "UF000000/O-0",
+    "contador_cpf": "333.444.555-96",
 }
 
 CONFIG = {"ano": 2025, "data_aprovacao": "20 de julho de 2026"}
@@ -119,8 +121,8 @@ def test_notas_do_modelo_ausentes_no_builder() -> None:
 
 def test_placeholders_resolvidos(notas) -> None:
     texto = notas[0].conteudo[0].texto
-    assert "Soberana Faculdade de Saúde de Petrolina LTDA" in texto
-    assert "19.265.047/0001-05" in texto
+    assert EMPRESA["nome"] in texto
+    assert EMPRESA["cnpj"] in texto
     assert "{empresa.nome}" not in texto
 
     aprovacao = " ".join(

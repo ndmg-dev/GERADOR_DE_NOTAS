@@ -1,3 +1,4 @@
+
 # Especificação Técnica — Gerador de Notas Explicativas
 **Versão:** 1.1  
 **Data:** Julho 2026  
