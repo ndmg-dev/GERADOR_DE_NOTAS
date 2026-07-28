@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # Ambiente
     environment: str = "development"
     frontend_url: str = "http://localhost:5173"
+    # Origins CORS adicionais (separadas por vírgula). Ex.: https://crm.empresa.com.br,https://outro.com
+    cors_origins: str = ""
 
     # Armazenamento
     storage_path: Path = Path("/app/storage")

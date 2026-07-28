@@ -37,6 +37,9 @@ services:
       # o CORS nem chega a ser exercido, mas o valor é usado se a API for
       # consumida de fora.
       FRONTEND_URL: ${SERVICE_URL_FRONTEND:-${FRONTEND_URL:-http://localhost}}
+      # Origins CORS adicionais para integração com CRM, iframe, etc.
+      # Formato: https://crm.empresa.com.br,https://outro.com.br
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-50}
       FILE_RETENTION_DAYS: ${FILE_RETENTION_DAYS:-30}
       UPLOAD_RETENTION_HOURS: ${UPLOAD_RETENTION_HOURS:-24}
