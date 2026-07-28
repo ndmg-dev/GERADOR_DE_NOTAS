@@ -57,10 +57,6 @@ services:
       # Contexto na raiz: a imagem precisa do código da SPA e do nginx.conf.
       context: .
       dockerfile: frontend/Dockerfile.prod
-    environment:
-      # O Coolify preenche esta variável e publica o serviço no domínio
-      # correspondente. O domínio pode ser trocado pela interface.
-      - SERVICE_FQDN_FRONTEND_80
     expose:
       - "80"
     depends_on:
