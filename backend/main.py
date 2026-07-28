@@ -21,11 +21,15 @@ logging.basicConfig(
 )
 logger = logging.getLogger("notas")
 
+# X-Frame-Options não suporta múltiplas origens, então o controle de quem
+# pode embutir a aplicação em iframe fica no frame-ancestors do CSP (ver
+# nginx/security-headers.conf para o mesmo ajuste no frontend).
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
-    "Content-Security-Policy": "default-src 'self'",
+    "Content-Security-Policy": (
+        "default-src 'self'; frame-ancestors 'self' https://crmmg.mendoncagalvao.com.br"
+    ),
     "Referrer-Policy": "no-referrer",
 }
 
