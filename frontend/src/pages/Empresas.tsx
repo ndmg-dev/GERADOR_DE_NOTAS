@@ -122,6 +122,22 @@ export function Empresas() {
       <div className="overflow-x-auto rounded-lg border border-borda bg-superficie">
         {empresas.isLoading ? (
           <p className="p-6 text-sm text-texto-fraco">Carregando...</p>
+        ) : empresas.isError ? (
+          // Sem este ramo, uma falha na consulta cairia no "length === 0" e
+          // apareceria como "Nenhuma empresa cadastrada" — escondendo o erro.
+          <div className="p-6">
+            <p className="text-sm text-erro">Falha ao carregar as empresas.</p>
+            <p className="mt-1 text-sm text-texto-suave">
+              {mensagemDeErro(empresas.error)}
+            </p>
+            <button
+              type="button"
+              onClick={() => empresas.refetch()}
+              className="btn-neutro mt-3 px-3 py-1.5"
+            >
+              Tentar novamente
+            </button>
+          </div>
         ) : (empresas.data ?? []).length === 0 ? (
           <p className="p-6 text-sm text-texto-fraco">Nenhuma empresa cadastrada.</p>
         ) : (

@@ -39,7 +39,10 @@ class Empresa(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Indexado porque toda consulta filtra por deleted_at IS NULL.
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - apoio a debug
         return f"<Empresa {self.id} {self.nome!r}>"

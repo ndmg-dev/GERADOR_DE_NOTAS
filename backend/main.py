@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -11,7 +12,12 @@ from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.config import settings
+from app.core.database import Base, engine
 from app.core.rate_limit import limiter
+
+# Importado pelo efeito colateral de registrar os models em Base.metadata,
+# do qual depende a criação do schema em preparar_schema().
+from app.models import AuditLog, Empresa, Job  # noqa: F401
 from app.routers import empresas, notas
 from app.services.storage import StorageService
 
@@ -44,9 +50,39 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+async def preparar_schema(tentativas: int = 10, espera: float = 3.0) -> None:
+    """Cria as tabelas que ainda não existem no banco.
+
+    O `db/init.sql` só é executado pelo Postgres no primeiro boot, com o volume
+    ainda vazio, e depende do bind mount ter funcionado. Quando isso falha, o
+    schema nunca é criado e a aplicação sobe normalmente, quebrando só na
+    primeira escrita — por isso a criação é garantida aqui, no startup.
+
+    `create_all` usa checkfirst: tabelas existentes são deixadas intactas, e
+    nenhuma coluna é alterada. Instalações antigas seguem inalteradas.
+    """
+    for tentativa in range(1, tentativas + 1):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            logger.info("Schema do banco verificado")
+            return
+        except Exception as exc:
+            if tentativa == tentativas:
+                raise
+            logger.warning(
+                "Banco indisponível (tentativa %d/%d): %s",
+                tentativa,
+                tentativas,
+                exc,
+            )
+            await asyncio.sleep(espera)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings.ensure_directories()
+    await preparar_schema()
     storage = StorageService()
     if settings.enable_scheduler:
         storage.start_scheduler()

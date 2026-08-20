@@ -154,19 +154,31 @@ que não se regenera.
 `git push` no branch configurado. Com **Automatic Deployment** ligado, o
 Coolify reconstrói e sobe sozinho.
 
+### Criação do schema
+
+O backend verifica o schema a cada startup e **cria as tabelas que estiverem
+faltando** (`preparar_schema()` em `backend/main.py`). Isso vale tanto para um
+banco novo quanto para um que subiu sem schema — caso que acontecia quando o
+`db/init.sql` não era executado, porque o Postgres só roda esse arquivo no
+primeiro boot com o volume vazio e desde que o bind mount tenha funcionado.
+
+A verificação é idempotente: tabelas existentes são deixadas intactas e nenhuma
+coluna é alterada. `db/init.sql` continua no compose e segue sendo a forma mais
+rápida de criar tudo num banco novo — o startup é a rede de segurança.
+
 ### Alterações no schema do banco
 
-`db/init.sql` roda **apenas na primeira subida**, com o volume vazio. Mudanças
-posteriores no schema não são aplicadas automaticamente — hoje precisam de SQL
-manual:
+Criar tabela nova é automático, mas **alterar uma tabela que já existe não é**:
+`create_all` não adiciona colunas nem muda tipos. Mudanças desse tipo ainda
+precisam de SQL manual:
 
 ```bash
 docker exec -i <container-do-db> psql -U notas_user -d notas_db < migracao.sql
 ```
 
 O Alembic já está nas dependências, mas as migrations ainda não foram
-escritas (Fase 3 da spec). Enquanto isso, toda alteração de schema precisa de
-um `ALTER TABLE` aplicado à mão.
+escritas (Fase 3 da spec). Enquanto isso, toda alteração em tabela existente
+precisa de um `ALTER TABLE` aplicado à mão.
 
 ### Logs
 
