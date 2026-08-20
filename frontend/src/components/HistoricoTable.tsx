@@ -31,7 +31,7 @@ export function StatusBadge({ status }: { status: JobStatus }) {
       {ROTULO_STATUS[status]}
     </span>
   )
-}
+} 
 
 export function HistoricoTable({ jobs, onDownload, carregando }: HistoricoTableProps) {
   if (carregando) {
