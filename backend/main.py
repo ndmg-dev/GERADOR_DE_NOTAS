@@ -50,6 +50,32 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Erros de autenticação do asyncpg, identificados pelo nome para não acoplar
+# este módulo ao driver.
+ERROS_DE_CREDENCIAL = frozenset(
+    {"InvalidPasswordError", "InvalidAuthorizationSpecificationError"}
+)
+
+AJUDA_CREDENCIAL = (
+    "Falha de autenticação no banco. O Postgres só aplica POSTGRES_PASSWORD "
+    "quando inicializa o volume pela primeira vez: se o volume já existia, ele "
+    "mantém a senha antiga e alterar a variável não tem efeito. Para alinhar a "
+    "senha do banco à do ambiente, sem perder dados, rode no servidor: "
+    "docker exec <container-do-db> psql -U notas_user -d notas_db "
+    "-c \"ALTER USER notas_user WITH PASSWORD '<a senha de POSTGRES_PASSWORD>';\""
+)
+
+
+def _e_erro_de_credencial(exc: BaseException) -> bool:
+    """Percorre a cadeia de causas procurando uma falha de autenticação."""
+    atual: BaseException | None = exc
+    while atual is not None:
+        if type(atual).__name__ in ERROS_DE_CREDENCIAL:
+            return True
+        atual = atual.__cause__
+    return False
+
+
 async def preparar_schema(tentativas: int = 10, espera: float = 3.0) -> None:
     """Cria as tabelas que ainda não existem no banco.
 
@@ -60,6 +86,9 @@ async def preparar_schema(tentativas: int = 10, espera: float = 3.0) -> None:
 
     `create_all` usa checkfirst: tabelas existentes são deixadas intactas, e
     nenhuma coluna é alterada. Instalações antigas seguem inalteradas.
+
+    A espera entre tentativas cobre o banco ainda subindo. Senha errada não é
+    transitória: nesse caso o erro sobe na hora, com a orientação de correção.
     """
     for tentativa in range(1, tentativas + 1):
         try:
@@ -68,6 +97,9 @@ async def preparar_schema(tentativas: int = 10, espera: float = 3.0) -> None:
             logger.info("Schema do banco verificado")
             return
         except Exception as exc:
+            if _e_erro_de_credencial(exc):
+                logger.error(AJUDA_CREDENCIAL)
+                raise
             if tentativa == tentativas:
                 raise
             logger.warning(

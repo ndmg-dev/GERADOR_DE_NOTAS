@@ -74,13 +74,32 @@ Em **Environment Variables**, cadastre:
 
 | Variável | Obrigatória | Observação |
 |---|---|---|
-| `POSTGRES_PASSWORD` | ✅ | Use o gerador do Coolify. O stack não sobe sem ela. |
+| `POSTGRES_PASSWORD` | ✅ | Use o gerador do Coolify. O stack não sobe sem ela. Só tem efeito no primeiro deploy — veja o aviso abaixo. |
 | `MAX_UPLOAD_SIZE_MB` | — | Padrão `50`. Se aumentar, ajuste `client_max_body_size` em `nginx/nginx.conf`. |
 | `FILE_RETENTION_DAYS` | — | Padrão `30`. |
 | `UPLOAD_RETENTION_HOURS` | — | Padrão `24`. |
 | `ENABLE_SCHEDULER` | — | Padrão `true`. Só mexa se rodar mais de uma réplica do backend. |
 
 O arquivo [`.env.production.example`](.env.production.example) lista todas elas.
+
+> ⚠️ **Trocar `POSTGRES_PASSWORD` depois do primeiro deploy não muda a senha do
+> banco.** O Postgres só lê essa variável ao inicializar o volume de dados; com
+> o volume já criado, ele mantém a senha original e ignora a nova.
+>
+> O sintoma é enganoso: o container `db` fica **healthy** (o `pg_isready` do
+> healthcheck não autentica) enquanto o backend morre no startup com
+> `password authentication failed for user "notas_user"`.
+>
+> Para alinhar a senha do banco à do ambiente **sem perder dados**:
+>
+> ```bash
+> DB=$(docker ps --format '{{.Names}}' | grep -iE 'db-|postgres' | head -1)
+> docker exec "$DB" psql -U notas_user -d notas_db -c \
+>   "ALTER USER notas_user WITH PASSWORD 'a-senha-de-POSTGRES_PASSWORD';"
+> ```
+>
+> Depois é só refazer o deploy. Apagar o volume também resolveria, mas **destrói
+> todas as empresas e o histórico** — use apenas em ambiente descartável.
 
 ---
 
