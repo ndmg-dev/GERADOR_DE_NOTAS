@@ -33,6 +33,9 @@ services:
       - storage_data:/app/storage
     ports:
       - "8000:8000"
+    # Mesmo motivo do compose de produção: tini como PID 1 colhe os processos
+    # do HEALTHCHECK, que o uvicorn deixaria virar zumbi.
+    init: true
     depends_on:
       db:
         condition: service_healthy

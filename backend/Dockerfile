@@ -28,8 +28,11 @@ USER notas
 
 EXPOSE 8000
 
+# http.client em vez de httpx: a checagem roda a cada 30s (~2.9k vezes por dia)
+# e importar httpx arrasta httpcore, h11, anyio e certifi a cada execução.
+# A verificação é a mesma — GET /api/health, 200 = saudável.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD python -c "import httpx,sys; sys.exit(0 if httpx.get('http://127.0.0.1:8000/api/health', timeout=4).status_code == 200 else 1)"
+    CMD python -c "import http.client,sys; c=http.client.HTTPConnection('127.0.0.1',8000,timeout=4); c.request('GET','/api/health'); sys.exit(0 if c.getresponse().status==200 else 1)"
 
 # --proxy-headers faz o IP real do cliente (X-Forwarded-For) chegar ao
 # rate limiting e ao audit_log, já que a aplicação roda atrás do nginx e
